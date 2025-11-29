@@ -20,6 +20,7 @@
 #include "subcollider/ugens/EnvelopeAR.h"
 #include "subcollider/ugens/LFNoise2.h"
 #include "subcollider/ugens/Pan2.h"
+#include "subcollider/ugens/Balance2.h"
 #include "subcollider/ugens/Lag.h"
 
 // Moog Ladder Filters

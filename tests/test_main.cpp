@@ -16,6 +16,7 @@ int test_lftri();
 int test_envelopear();
 int test_lfnoise2();
 int test_pan2();
+int test_balance2();
 int test_audioloop();
 int test_examplevoice();
 int test_moogladders();
@@ -46,6 +47,9 @@ int main() {
 
     std::cout << "--- Pan2 Tests ---" << std::endl;
     failures += test_pan2();
+
+    std::cout << "--- Balance2 Tests ---" << std::endl;
+    failures += test_balance2();
 
     std::cout << "--- AudioLoop Tests ---" << std::endl;
     failures += test_audioloop();

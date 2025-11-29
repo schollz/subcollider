@@ -2,7 +2,8 @@
  * @file moog_example.cpp
  * @brief Interactive Moog filter example with mouse control.
  *
- * This example demonstrates the ImprovedMoogLadder filter with a SawDPW oscillator.
+ * This example demonstrates the OberheimMoogLadder filter with three SawDPW
+ * oscillators playing a C major chord (C4, E4, G4).
  * Mouse X controls cutoff frequency, Mouse Y controls resonance.
  *
  * Compile with: -ljack -lX11
@@ -26,8 +27,10 @@ using namespace subcollider;
 using namespace subcollider::ugens;
 
 // Global state for JACK callback
-static SawDPW g_saw;
-static ImprovedMoogLadder g_filter;
+static SawDPW g_sawC;  // C4 = 261.63 Hz
+static SawDPW g_sawE;  // E4 = 329.63 Hz
+static SawDPW g_sawG;  // G4 = 392.00 Hz
+static OberheimMoogLadder g_filter;
 static Lag g_cutoffLag;
 static Lag g_resonanceLag;
 static jack_port_t* g_outputPortL = nullptr;
@@ -35,6 +38,11 @@ static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static std::atomic<float> g_cutoff{1000.0f};
 static std::atomic<float> g_resonance{0.3f};
+
+// C major chord frequencies
+static constexpr float FREQ_C4 = 261.63f;
+static constexpr float FREQ_E4 = 329.63f;
+static constexpr float FREQ_G4 = 392.00f;
 
 // Mouse control parameters
 static constexpr float MIN_CUTOFF = 100.0f;
@@ -67,11 +75,16 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         g_filter.setCutoff(smoothCutoff);
         g_filter.setResonance(smoothResonance);
 
-        // Generate saw wave
-        Sample sawSample = g_saw.tick();
+        // Generate three saw waves for C major chord
+        Sample sawC = g_sawC.tick();
+        Sample sawE = g_sawE.tick();
+        Sample sawG = g_sawG.tick();
 
-        // Filter it
-        Sample filtered = g_filter.tick(sawSample);
+        // Mix the three oscillators (divide by 3 to normalize)
+        Sample mixed = (sawC + sawE + sawG) / 3.0f;
+
+        // Filter the mixed signal
+        Sample filtered = g_filter.tick(mixed);
 
         // Output to both channels (mono)
         outL[i] = filtered * 0.3f;  // Reduce volume to prevent clipping
@@ -86,11 +99,15 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
  */
 int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     std::cout << "Sample rate changed to: " << nframes << " Hz" << std::endl;
-    g_saw.init(static_cast<float>(nframes));
+    g_sawC.init(static_cast<float>(nframes));
+    g_sawE.init(static_cast<float>(nframes));
+    g_sawG.init(static_cast<float>(nframes));
     g_filter.init(static_cast<float>(nframes));
     g_cutoffLag.init(static_cast<float>(nframes), 0.2f);
     g_resonanceLag.init(static_cast<float>(nframes), 0.2f);
-    g_saw.setFrequency(440.0f);
+    g_sawC.setFrequency(FREQ_C4);
+    g_sawE.setFrequency(FREQ_E4);
+    g_sawG.setFrequency(FREQ_G4);
     return 0;
 }
 
@@ -151,9 +168,17 @@ int main() {
     jack_nframes_t sampleRate = jack_get_sample_rate(client);
     std::cout << "Sample rate: " << sampleRate << " Hz" << std::endl;
 
-    g_saw.init(static_cast<float>(sampleRate));
-    g_saw.setFrequency(440.0f);
+    // Initialize three saw oscillators for C major chord
+    g_sawC.init(static_cast<float>(sampleRate));
+    g_sawC.setFrequency(FREQ_C4);
 
+    g_sawE.init(static_cast<float>(sampleRate));
+    g_sawE.setFrequency(FREQ_E4);
+
+    g_sawG.init(static_cast<float>(sampleRate));
+    g_sawG.setFrequency(FREQ_G4);
+
+    // Initialize Oberheim Moog Ladder filter
     g_filter.init(static_cast<float>(sampleRate));
     g_filter.setCutoff(1000.0f);
     g_filter.setResonance(0.3f);
@@ -194,6 +219,8 @@ int main() {
     }
 
     std::cout << "JACK client activated" << std::endl;
+    std::cout << std::endl;
+    std::cout << "Playing C major chord (C4-E4-G4) through Oberheim Moog Ladder filter" << std::endl;
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Move mouse horizontally (X) to control cutoff frequency" << std::endl;
