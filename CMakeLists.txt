@@ -52,6 +52,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_phasor.cpp
         tests/test_supersaw.cpp
         tests/test_downsampler.cpp
+        tests/test_buffer.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     
