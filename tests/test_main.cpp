@@ -11,6 +11,7 @@
 // Forward declarations of test functions
 int test_types();
 int test_sinosc();
+int test_sawdpw();
 int test_envelopear();
 int test_lfnoise2();
 int test_pan2();
@@ -27,6 +28,9 @@ int main() {
 
     std::cout << "--- SinOsc Tests ---" << std::endl;
     failures += test_sinosc();
+
+    std::cout << "--- SawDPW Tests ---" << std::endl;
+    failures += test_sawdpw();
 
     std::cout << "--- EnvelopeAR Tests ---" << std::endl;
     failures += test_envelopear();
