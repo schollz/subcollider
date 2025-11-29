@@ -17,6 +17,7 @@ int test_lfnoise2();
 int test_pan2();
 int test_audioloop();
 int test_examplevoice();
+int test_moogladders();
 
 int main() {
     int failures = 0;
@@ -46,6 +47,9 @@ int main() {
 
     std::cout << "--- ExampleVoice Tests ---" << std::endl;
     failures += test_examplevoice();
+
+    std::cout << "--- MoogLadder Tests ---" << std::endl;
+    failures += test_moogladders();
 
     std::cout << std::endl;
     if (failures == 0) {
