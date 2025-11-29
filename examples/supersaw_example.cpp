@@ -92,7 +92,7 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     g_resonanceLag.init(static_cast<float>(nframes), 0.2f);
 
     // Re-apply settings after init
-    g_supersaw.setFrequency(440.0f);
+    g_supersaw.setFrequency(55.0f);
     g_supersaw.setDetune(0.2f);
     g_supersaw.setVibratoRate(6.0f);
     g_supersaw.setVibratoDepth(0.3f);
@@ -171,7 +171,7 @@ int main() {
 
     // Initialize SuperSaw
     g_supersaw.init(static_cast<float>(sampleRate), 42);  // seed=42
-    g_supersaw.setFrequency(440.0f);
+    g_supersaw.setFrequency(55.0f);
     g_supersaw.setDetune(0.2f);           // 0.2 semitones detune
     g_supersaw.setVibratoRate(6.0f);      // 6 Hz vibrato
     g_supersaw.setVibratoDepth(0.3f);     // 0.3 semitones vibrato depth
@@ -227,7 +227,7 @@ int main() {
 
     std::cout << "JACK client activated" << std::endl;
     std::cout << std::endl;
-    std::cout << "Playing SuperSaw at 440 Hz (7 detuned voices with vibrato)" << std::endl;
+    std::cout << "Playing SuperSaw at 55 Hz (7 detuned voices with vibrato)" << std::endl;
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Move mouse horizontally (X) to control cutoff frequency" << std::endl;
