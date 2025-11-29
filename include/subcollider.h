@@ -20,6 +20,15 @@
 #include "subcollider/ugens/LFNoise2.h"
 #include "subcollider/ugens/Pan2.h"
 
+// Moog Ladder Filters
+#include "subcollider/ugens/StilsonMoogLadder.h"
+#include "subcollider/ugens/MicrotrackerMoogLadder.h"
+#include "subcollider/ugens/KrajeskiMoogLadder.h"
+#include "subcollider/ugens/MusicDSPMoogLadder.h"
+#include "subcollider/ugens/OberheimMoogLadder.h"
+#include "subcollider/ugens/ImprovedMoogLadder.h"
+#include "subcollider/ugens/RKSimulationMoogLadder.h"
+
 // Example voice
 #include "subcollider/ExampleVoice.h"
 
