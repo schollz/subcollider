@@ -24,6 +24,7 @@
 #include "subcollider/ugens/Balance2.h"
 #include "subcollider/ugens/Lag.h"
 #include "subcollider/ugens/XLine.h"
+#include "subcollider/ugens/Phasor.h"
 #include "subcollider/ugens/Downsampler.h"
 
 // Moog Ladder Filters
