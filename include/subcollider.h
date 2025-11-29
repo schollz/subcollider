@@ -12,6 +12,7 @@
 #include "subcollider/types.h"
 #include "subcollider/AudioBuffer.h"
 #include "subcollider/AudioLoop.h"
+#include "subcollider/Buffer.h"
 
 // UGens
 #include "subcollider/ugens/SinOsc.h"

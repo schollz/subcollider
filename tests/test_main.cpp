@@ -25,6 +25,7 @@ int test_xline();
 int test_phasor();
 int test_supersaw();
 int test_downsampler();
+int test_buffer();
 
 int main() {
     int failures = 0;
@@ -78,6 +79,9 @@ int main() {
 
     std::cout << "--- Downsampler Tests ---" << std::endl;
     failures += test_downsampler();
+
+    std::cout << "--- Buffer Tests ---" << std::endl;
+    failures += test_buffer();
 
     std::cout << std::endl;
     if (failures == 0) {
