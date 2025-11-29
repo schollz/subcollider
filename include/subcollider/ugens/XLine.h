@@ -100,13 +100,21 @@ struct XLine {
      * @param mulVal Output multiplier (default: 1.0)
      * @param addVal Output offset (default: 0.0)
      *
-     * Note: Both start and end must be non-zero and have the same sign.
-     * If this constraint is violated, the values will be adjusted to
-     * prevent undefined behavior.
+     * Note: Both start and end must be non-zero and have the same sign
+     * for the exponential curve to be mathematically valid.
+     *
+     * Automatic adjustments are made for invalid inputs:
+     * - Zero values are adjusted to 0.0001 (or -0.0001 if other value is negative)
+     * - If signs differ, both values are converted to their absolute values
+     * - Duration <= 0 is adjusted to 0.001 seconds
+     *
+     * These adjustments prevent undefined behavior (NaN/Inf) but may not
+     * produce the intended output. For predictable results, ensure inputs
+     * meet the constraints.
      */
     void set(Sample startVal, Sample endVal, Sample duration,
              Sample mulVal = 1.0f, Sample addVal = 0.0f) noexcept {
-        // Ensure non-zero values and same sign
+        // Ensure non-zero values
         if (startVal == 0.0f) startVal = 0.0001f;
         if (endVal == 0.0f) endVal = 0.0001f;
 
@@ -136,11 +144,16 @@ struct XLine {
      *
      * This means: value *= growthFactor each sample
      * After durSamples: value = start * growthFactor^durSamples = end
+     *
+     * Note: For negative values with the same sign, end/start is positive,
+     * so the logarithm is valid. The value stays negative because we
+     * multiply a negative start by a positive growth factor.
      */
     void updateGrowthFactor() noexcept {
         if (durSamples > 0.0f && start != 0.0f) {
             // growthFactor = (end/start)^(1/durSamples)
             // = exp(log(end/start) / durSamples)
+            // Note: end/start is always positive when start and end have the same sign
             growthFactor = std::exp(std::log(end / start) / durSamples);
         } else {
             growthFactor = 1.0f;
