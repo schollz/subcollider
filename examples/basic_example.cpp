@@ -81,8 +81,8 @@ int main() {
         std::cout << std::endl;
     }
 
-    // Example 4: ExampleVoice (combining all UGens)
-    std::cout << std::endl << "Example 4: ExampleVoice" << std::endl;
+    // Example 4: ExampleVoice (combining all UGens - stereo output)
+    std::cout << std::endl << "Example 4: ExampleVoice (Stereo)" << std::endl;
     {
         ExampleVoice voice;
         voice.init(SAMPLE_RATE);
@@ -95,16 +95,21 @@ int main() {
 
         voice.trigger();
 
-        AudioBuffer<BLOCK_SIZE> buffer;
+        AudioBuffer<BLOCK_SIZE> bufferL;
+        AudioBuffer<BLOCK_SIZE> bufferR;
 
         // Generate a few blocks
-        Sample maxVal = 0.0f;
+        Sample maxValL = 0.0f;
+        Sample maxValR = 0.0f;
         for (size_t block = 0; block < NUM_BLOCKS; ++block) {
-            voice.process(buffer.data, BLOCK_SIZE);
+            voice.process(bufferL.data, bufferR.data, BLOCK_SIZE);
 
             for (size_t i = 0; i < BLOCK_SIZE; ++i) {
-                if (std::abs(buffer[i]) > maxVal) {
-                    maxVal = std::abs(buffer[i]);
+                if (std::abs(bufferL[i]) > maxValL) {
+                    maxValL = std::abs(bufferL[i]);
+                }
+                if (std::abs(bufferR[i]) > maxValR) {
+                    maxValR = std::abs(bufferR[i]);
                 }
             }
 
@@ -114,37 +119,42 @@ int main() {
             }
         }
 
-        std::cout << "  Peak amplitude: " << maxVal << std::endl;
+        std::cout << "  Peak amplitude L: " << maxValL << ", R: " << maxValR << std::endl;
         std::cout << "  Voice active: " << (voice.isActive() ? "yes" : "no") << std::endl;
     }
 
-    // Example 5: AudioLoop usage
-    std::cout << std::endl << "Example 5: AudioLoop" << std::endl;
+    // Example 5: AudioLoop usage (stereo)
+    std::cout << std::endl << "Example 5: AudioLoop (Stereo)" << std::endl;
     {
-        AudioLoop<BLOCK_SIZE> loop;
-        loop.init(SAMPLE_RATE);
+        AudioLoop<BLOCK_SIZE> loopL;
+        AudioLoop<BLOCK_SIZE> loopR;
+        loopL.init(SAMPLE_RATE);
+        loopR.init(SAMPLE_RATE);
 
         ExampleVoice voice;
         voice.init(SAMPLE_RATE);
         voice.setFrequency(440.0f);
         voice.trigger();
 
-        // Simulate audio processing loop
+        // Simulate stereo audio processing loop
         for (int i = 0; i < 10; ++i) {
-            // Get processing buffer
-            Sample* procBuf = loop.getProcessingBuffer();
+            // Get processing buffers for left and right
+            Sample* procBufL = loopL.getProcessingBuffer();
+            Sample* procBufR = loopR.getProcessingBuffer();
 
-            // Clear it
-            loop.clearProcessingBuffer();
+            // Clear them
+            loopL.clearProcessingBuffer();
+            loopR.clearProcessingBuffer();
 
-            // Process voice into buffer
-            voice.process(procBuf, BLOCK_SIZE);
+            // Process voice into stereo buffers
+            voice.process(procBufL, procBufR, BLOCK_SIZE);
 
             // Swap buffers (makes processed data available for output)
-            loop.swapBuffers();
+            loopL.swapBuffers();
+            loopR.swapBuffers();
         }
 
-        std::cout << "  Processed 10 blocks successfully" << std::endl;
+        std::cout << "  Processed 10 stereo blocks successfully" << std::endl;
     }
 
     std::cout << std::endl << "All examples completed successfully!" << std::endl;
