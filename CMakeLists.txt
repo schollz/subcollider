@@ -40,6 +40,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_sawdpw.cpp
         tests/test_lftri.cpp
         tests/test_envelopear.cpp
+        tests/test_envelopeadsr.cpp
         tests/test_lfnoise2.cpp
         tests/test_pan2.cpp
         tests/test_balance2.cpp

@@ -14,6 +14,7 @@ int test_sinosc();
 int test_sawdpw();
 int test_lftri();
 int test_envelopear();
+int test_envelopeadsr();
 int test_lfnoise2();
 int test_pan2();
 int test_balance2();
@@ -41,6 +42,9 @@ int main() {
 
     std::cout << "--- EnvelopeAR Tests ---" << std::endl;
     failures += test_envelopear();
+
+    std::cout << "--- EnvelopeADSR Tests ---" << std::endl;
+    failures += test_envelopeadsr();
 
     std::cout << "--- LFNoise2 Tests ---" << std::endl;
     failures += test_lfnoise2();
