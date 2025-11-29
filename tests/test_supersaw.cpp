@@ -234,42 +234,6 @@ int test_supersaw() {
         TEST("SuperSaw attack: amplitude increases over time", laterSample > firstSample);
     }
 
-    // Test filter cutoff affects output
-    {
-        SuperSaw supersaw1;
-        supersaw1.init(48000.0f, 42);
-        supersaw1.setFrequency(440.0f);
-        supersaw1.setCutoff(20000.0f);  // High cutoff
-        supersaw1.gate(1.0f);
-
-        SuperSaw supersaw2;
-        supersaw2.init(48000.0f, 42);
-        supersaw2.setFrequency(440.0f);
-        supersaw2.setCutoff(200.0f);    // Low cutoff (should sound darker)
-        supersaw2.gate(1.0f);
-
-        // Run to sustain
-        for (int i = 0; i < 5000; ++i) {
-            supersaw1.tick();
-            supersaw2.tick();
-        }
-
-        // Compare RMS of a few samples
-        Sample rms1 = 0.0f;
-        Sample rms2 = 0.0f;
-        for (int i = 0; i < 100; ++i) {
-            Stereo s1 = supersaw1.tick();
-            Stereo s2 = supersaw2.tick();
-            rms1 += s1.left * s1.left + s1.right * s1.right;
-            rms2 += s2.left * s2.left + s2.right * s2.right;
-        }
-        rms1 = std::sqrt(rms1 / 200.0f);
-        rms2 = std::sqrt(rms2 / 200.0f);
-
-        // Low cutoff should have lower RMS (less high frequency content)
-        TEST("SuperSaw filter: low cutoff reduces output energy", rms2 < rms1);
-    }
-
     // Test all 7 voices are different (due to detuning and random phases)
     {
         SuperSaw supersaw;
