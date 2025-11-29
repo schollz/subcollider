@@ -2,7 +2,7 @@
  * @file benchmark.cpp
  * @brief Benchmarks for SubCollider UGens.
  *
- * Measures tick() performance for each UGen in ticks/sec.
+ * Measures tick() performance as instances per 1 sample at 44.1 kHz.
  */
 
 #include <iostream>
@@ -14,9 +14,11 @@
 #include <subcollider/ugens/SawDPW.h>
 #include <subcollider/ugens/LFTri.h>
 #include <subcollider/ugens/EnvelopeAR.h>
+#include <subcollider/ugens/EnvelopeADSR.h>
 #include <subcollider/ugens/LFNoise2.h>
 #include <subcollider/ugens/Pan2.h>
 #include <subcollider/ugens/XLine.h>
+#include <subcollider/ugens/SuperSaw.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -31,10 +33,14 @@ static constexpr int BENCHMARK_ITERATIONS = 1000000;
  * @param ticksPerSec Measured ticks per second
  */
 void printResult(const std::string& name, double ticksPerSec) {
-    // Convert to millions and format as integer ticks/sec
-    long long ticksPerSecInt = static_cast<long long>(ticksPerSec);
-    std::cout << std::left << std::setw(12) << name 
-              << ticksPerSecInt << " ticks/sec" << std::endl;
+    // Convert to ticks per microsecond
+    double ticksPerMicrosec = ticksPerSec / 1e6;
+    // Convert to instances per 1 sample at 44.1 kHz
+    // 1 sample at 44.1 kHz = 1000000/44100 microseconds
+    double instancesPerSample = ticksPerMicrosec * (1000000.0 / 44100.0);
+    std::cout << std::left << std::setw(14) << name
+              << std::fixed << std::setprecision(2) << instancesPerSample
+              << " instances/sample@44.1kHz" << std::endl;
 }
 
 /**
@@ -165,6 +171,100 @@ void benchmarkEnvelopeAR() {
 }
 
 /**
+ * @brief Benchmark EnvelopeADSR tick().
+ */
+void benchmarkEnvelopeADSR() {
+    EnvelopeADSR env;
+    env.init(48000.0f);
+    env.setAttack(0.01f);
+    env.setDecay(0.1f);
+    env.setSustain(0.7f);
+    env.setRelease(0.3f);
+    env.gate(1.0f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = env.tick();
+        // Retrigger if envelope becomes idle
+        if (!env.isActive()) {
+            env.gate(1.0f);
+        }
+    }
+
+    // Benchmark - retrigger envelope when idle to keep it active
+    env.gate(1.0f);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = env.tick();
+        // Retrigger if envelope becomes idle
+        if (!env.isActive()) {
+            env.gate(1.0f);
+        }
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("EnvelopeADSR", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark SuperSaw tick().
+ */
+void benchmarkSuperSaw() {
+    SuperSaw supersaw;
+    supersaw.init(48000.0f);
+    supersaw.setFrequency(440.0f);
+    supersaw.setAttack(0.01f);
+    supersaw.setDecay(0.1f);
+    supersaw.setSustain(0.7f);
+    supersaw.setRelease(0.3f);
+    supersaw.setDetune(0.2f);
+    supersaw.setSpread(0.6f);
+    supersaw.gate(1.0f);
+
+    // Warmup
+    Stereo result(0.0f, 0.0f);
+    volatile Sample sinkL = 0.0f;
+    volatile Sample sinkR = 0.0f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        result = supersaw.tick();
+        sinkL = result.left;
+        sinkR = result.right;
+        // Retrigger if envelope becomes idle
+        if (!supersaw.isActive()) {
+            supersaw.gate(1.0f);
+        }
+    }
+
+    // Benchmark - retrigger when idle to keep it active
+    supersaw.gate(1.0f);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        result = supersaw.tick();
+        sinkL = result.left;
+        sinkR = result.right;
+        // Retrigger if envelope becomes idle
+        if (!supersaw.isActive()) {
+            supersaw.gate(1.0f);
+        }
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("SuperSaw", ticksPerSec);
+    (void)sinkL;
+    (void)sinkR;
+}
+
+/**
  * @brief Benchmark LFNoise2 tick().
  */
 void benchmarkLFNoise2() {
@@ -267,6 +367,8 @@ int main() {
     benchmarkSawDPW();
     benchmarkLFTri();
     benchmarkEnvelopeAR();
+    benchmarkEnvelopeADSR();
+    benchmarkSuperSaw();
     benchmarkLFNoise2();
     benchmarkPan2();
     benchmarkXLine();
