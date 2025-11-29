@@ -118,7 +118,7 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
 
     // Process at 2x oversampling rate (96kHz)
     // For each output frame, we need to generate 2 internal frames
-    constexpr size_t oversampleFactor = 1;
+    constexpr size_t oversampleFactor = 2;
     const size_t internalFrames = nframes * oversampleFactor;
 
     // Temporary buffers for oversampled audio (max 2048 frames at 2x = 4096 samples)

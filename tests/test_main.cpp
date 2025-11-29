@@ -29,6 +29,7 @@ int test_buffer();
 int test_bufferallocator();
 int test_bufrd();
 int test_bufrd_phasor();
+int test_playback_oversampling();
 
 int main() {
     int failures = 0;
@@ -94,6 +95,9 @@ int main() {
 
     std::cout << "--- BufRd + Phasor Tests ---" << std::endl;
     failures += test_bufrd_phasor();
+
+    std::cout << "--- Playback Oversampling Tests ---" << std::endl;
+    failures += test_playback_oversampling();
 
     std::cout << std::endl;
     if (failures == 0) {
