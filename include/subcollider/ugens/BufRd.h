@@ -139,7 +139,8 @@ struct BufRd {
             return lerp(s0, s1, frac);
         } else if (interpolation == 4) {
             // Cubic interpolation (Catmull-Rom spline)
-            const size_t indexM1 = wrapIndex(index0 + numSamples - 1, numSamples);
+            // Use safe subtraction to avoid overflow
+            const size_t indexM1 = (index0 == 0) ? wrapIndex(numSamples - 1, numSamples) : wrapIndex(index0 - 1, numSamples);
             const size_t index1 = wrapIndex(index0 + 1, numSamples);
             const size_t index2 = wrapIndex(index0 + 2, numSamples);
 
@@ -201,7 +202,8 @@ struct BufRd {
             );
         } else if (interpolation == 4) {
             // Cubic interpolation (Catmull-Rom spline)
-            const size_t indexM1 = wrapIndex(index0 + numSamples - 1, numSamples);
+            // Use safe subtraction to avoid overflow
+            const size_t indexM1 = (index0 == 0) ? wrapIndex(numSamples - 1, numSamples) : wrapIndex(index0 - 1, numSamples);
             const size_t index1 = wrapIndex(index0 + 1, numSamples);
             const size_t index2 = wrapIndex(index0 + 2, numSamples);
 
