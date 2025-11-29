@@ -29,6 +29,9 @@ constexpr Sample PI = 3.14159265358979323846f;
 /// Two Pi constant
 constexpr Sample TWO_PI = 2.0f * PI;
 
+/// 2^31 for normalizing LCG output to [-1, 1]
+constexpr Sample LCG_NORM = 2147483648.0f;
+
 /**
  * @brief Linear interpolation between two values.
  * @param a Start value

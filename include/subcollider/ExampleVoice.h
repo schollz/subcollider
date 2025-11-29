@@ -176,8 +176,12 @@ struct ExampleVoice {
         // Apply vibrato modulation to frequency
         if (vibratoDepth > 0.0f) {
             Sample vibMod = vibrato.tick();
-            // Convert semitones to frequency ratio: 2^(semitones/12)
-            Sample ratio = std::pow(2.0f, (vibMod * vibratoDepth) / 12.0f);
+            // Convert semitones to frequency ratio using fast exp2 approximation
+            // 2^(semitones/12) = exp(semitones * ln(2) / 12)
+            Sample semitones = vibMod * vibratoDepth;
+            // Fast approximation: for small x, 2^x ≈ 1 + x * ln(2)
+            // For vibrato depth typically < 1 semitone, this is sufficient
+            Sample ratio = 1.0f + semitones * 0.057762265f;  // ln(2)/12 ≈ 0.057762265
             osc.setFrequency(baseFrequency * ratio);
         }
 

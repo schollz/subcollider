@@ -108,6 +108,9 @@ struct EnvelopeAR {
 
     /**
      * @brief Update attack coefficient from current attack time.
+     *
+     * Note: Uses std::exp which is acceptable since this is called
+     * at control rate (once per parameter change), not audio rate.
      */
     void updateAttackCoefficient() noexcept {
         // Exponential coefficient for ~99.3% target in attackTime seconds
@@ -116,6 +119,9 @@ struct EnvelopeAR {
 
     /**
      * @brief Update release coefficient from current release time.
+     *
+     * Note: Uses std::exp which is acceptable since this is called
+     * at control rate (once per parameter change), not audio rate.
      */
     void updateReleaseCoefficient() noexcept {
         // Exponential coefficient for ~99.3% decay in releaseTime seconds

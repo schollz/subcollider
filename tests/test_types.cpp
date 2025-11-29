@@ -21,7 +21,7 @@ int test_types() {
     int failures = 0;
 
     // Test constants
-    TEST("PI is approximately 3.14159", std::abs(PI - 3.14159265f) < 0.0001f);
+    TEST("PI is approximately 3.14159", std::abs(PI - 3.14159265358979323846f) < 0.0001f);
     TEST("TWO_PI is 2*PI", std::abs(TWO_PI - 2.0f * PI) < 0.0001f);
     TEST("DEFAULT_SAMPLE_RATE is 48000", DEFAULT_SAMPLE_RATE == 48000.0f);
     TEST("DEFAULT_BLOCK_SIZE is 64", DEFAULT_BLOCK_SIZE == 64);

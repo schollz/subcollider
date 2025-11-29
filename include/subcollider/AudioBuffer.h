@@ -10,7 +10,6 @@
 #define SUBCOLLIDER_AUDIO_BUFFER_H
 
 #include "types.h"
-#include <cstring>
 
 namespace subcollider {
 

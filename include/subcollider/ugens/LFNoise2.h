@@ -103,7 +103,7 @@ struct LFNoise2 {
         // LCG parameters (Numerical Recipes)
         seed = seed * 1664525u + 1013904223u;
         // Convert to float [-1, 1]
-        return (static_cast<Sample>(seed) / 2147483648.0f) - 1.0f;
+        return (static_cast<Sample>(seed) / LCG_NORM) - 1.0f;
     }
 
     /**

@@ -19,7 +19,6 @@ namespace subcollider {
  * @brief ISR-safe audio processing loop.
  *
  * @tparam BlockSize Size of audio blocks in samples
- * @tparam VoiceType Type of the voice/synth to process
  *
  * This class manages block-based audio processing in an ISR-safe manner.
  * It maintains a double buffer for output and processes audio in fixed-size
@@ -27,20 +26,18 @@ namespace subcollider {
  *
  * Usage:
  * @code
- * struct MyVoice {
- *     void init(float sampleRate) { ... }
- *     void process(float* buffer, size_t numSamples) { ... }
- * };
- *
- * AudioLoop<64, MyVoice> loop;
+ * AudioLoop<64> loop;
  * loop.init(48000.0f);
  *
  * // In audio interrupt or callback:
- * loop.processBlock();
+ * float* buf = loop.getProcessingBuffer();
+ * loop.clearProcessingBuffer();
+ * myVoice.process(buf, 64);
+ * loop.swapBuffers();
  * const float* output = loop.getOutputBuffer();
  * @endcode
  */
-template<size_t BlockSize = DEFAULT_BLOCK_SIZE, typename VoiceType = void>
+template<size_t BlockSize = DEFAULT_BLOCK_SIZE>
 struct AudioLoop {
     /// Output buffer A
     AudioBuffer<BlockSize> bufferA;
