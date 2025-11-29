@@ -179,14 +179,19 @@ bool loadWavFile(const char* filename, std::vector<Sample>& samples,
             samples[i] = static_cast<Sample>(sample) / 32768.0f;
         }
     } else if (header.bitsPerSample == 24) {
-        // 24-bit samples (little-endian, sign-extend to 32-bit)
+        // 24-bit samples (little-endian)
+        // Byte order: [offset]=LSB, [offset+1]=middle, [offset+2]=MSB (with sign)
+        // Strategy: place bytes in upper 24 bits of int32, then sign-extend by shifting right
         for (size_t i = 0; i < totalSamples; ++i) {
             size_t offset = i * 3;
+            // Construct 32-bit value with 24-bit sample in upper bits
             int32_t sample = static_cast<int32_t>(
-                (static_cast<uint8_t>(rawData[offset]) << 8) |
-                (static_cast<uint8_t>(rawData[offset + 1]) << 16) |
-                (static_cast<uint8_t>(rawData[offset + 2]) << 24)
-            ) >> 8;  // Sign-extend by shifting
+                (static_cast<uint32_t>(static_cast<uint8_t>(rawData[offset])) << 8) |
+                (static_cast<uint32_t>(static_cast<uint8_t>(rawData[offset + 1])) << 16) |
+                (static_cast<uint32_t>(static_cast<uint8_t>(rawData[offset + 2])) << 24)
+            );
+            // Sign-extend by arithmetic right shift
+            sample >>= 8;
             samples[i] = static_cast<Sample>(sample) / 8388608.0f;  // 2^23
         }
     }
@@ -249,7 +254,7 @@ int test_bufrd_phasor() {
         // Create BufRd with no interpolation (1) for exact 1:1 sample reading
         BufRd bufRd;
         bufRd.init(&buf);
-        bufRd.setLoop(false);  // Don't loop, play through once
+        bufRd.setLoop(false);  // Clamp to buffer bounds (doesn't affect Phasor behavior)
         bufRd.setInterpolation(1);  // No interpolation for exact sample matching
 
         // Play through the entire file and verify output matches input
@@ -294,16 +299,19 @@ int test_bufrd_phasor() {
             std::cout << "  First mismatch at sample: " << firstMismatchIndex << std::endl;
         }
 
-        // Verify Phasor is at the end of the buffer
-        // After numFrames ticks, phasor value should be at numFrames (wrapped back to 0 if looping,
-        // but we didn't loop so it should be at the end)
+        // Verify Phasor value after completing playback
+        // After numFrames ticks with rate=1.0, phasor.value should be at numFrames
+        // (The Phasor wraps on its own, but since end=numFrames, after the last tick
+        // value will be exactly numFrames before any wrapping occurs on the next tick)
         TEST("Phasor completed full playback", phasor.value >= static_cast<Sample>(numFrames));
 
         // Additional verification: spot-check some specific samples
+        // Note: Phasor.tick() returns current value BEFORE advancing, so:
+        // - After reset(x), tick() returns x and advances to x+rate
         {
             // Reset and verify first sample
             phasor.reset();
-            Sample phase = phasor.tick();
+            Sample phase = phasor.tick();  // Returns 0.0, then advances to 1.0
             Stereo first = bufRd.tickStereo(phase);
             TEST("First sample left matches", std::abs(first.left - wavSamples[0]) < 0.0001f);
             TEST("First sample right matches", std::abs(first.right - wavSamples[1]) < 0.0001f);
@@ -313,7 +321,7 @@ int test_bufrd_phasor() {
             // Test middle sample
             size_t midIndex = numFrames / 2;
             phasor.reset(static_cast<Sample>(midIndex));
-            Sample phase = phasor.tick();
+            Sample phase = phasor.tick();  // Returns midIndex, then advances
             Stereo mid = bufRd.tickStereo(phase);
             TEST("Middle sample left matches",
                  std::abs(mid.left - wavSamples[midIndex * 2]) < 0.0001f);
@@ -325,7 +333,7 @@ int test_bufrd_phasor() {
             // Test last sample
             size_t lastIndex = numFrames - 1;
             phasor.reset(static_cast<Sample>(lastIndex));
-            Sample phase = phasor.tick();
+            Sample phase = phasor.tick();  // Returns lastIndex, then advances
             Stereo last = bufRd.tickStereo(phase);
             TEST("Last sample left matches",
                  std::abs(last.left - wavSamples[lastIndex * 2]) < 0.0001f);
