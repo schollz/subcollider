@@ -90,6 +90,25 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     g_supersaw.init(static_cast<float>(nframes));
     g_cutoffLag.init(static_cast<float>(nframes), 0.2f);
     g_resonanceLag.init(static_cast<float>(nframes), 0.2f);
+
+    // Re-apply settings after init
+    g_supersaw.setFrequency(440.0f);
+    g_supersaw.setDetune(0.2f);
+    g_supersaw.setVibratoRate(6.0f);
+    g_supersaw.setVibratoDepth(0.3f);
+    g_supersaw.setDrive(1.5f);
+    g_supersaw.setSpread(0.6f);
+    g_supersaw.setCutoff(5000.0f);
+    g_supersaw.setLpEnv(0.0f);
+    g_supersaw.setLpAttack(0.0f);
+    g_supersaw.setAttack(0.01f);
+    g_supersaw.setDecay(0.1f);
+    g_supersaw.setSustain(0.7f);
+    g_supersaw.setRelease(0.3f);
+
+    // Re-trigger the gate after init (which resets the envelope)
+    g_supersaw.gate(1.0f);
+
     return 0;
 }
 

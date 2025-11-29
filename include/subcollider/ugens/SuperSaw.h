@@ -305,9 +305,8 @@ struct SuperSaw {
         // Get envelope value
         Sample env = envelope.tick();
 
-        // Get filter line value and update filter cutoff
-        Sample filterCutoff = filterLine.tick();
-        filter.setCutoff(filterCutoff);
+        // Use cutoff parameter directly for real-time control
+        filter.setCutoff(cutoff);
 
         // Mix all voices
         Stereo mix(0.0f, 0.0f);
