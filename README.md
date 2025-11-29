@@ -33,9 +33,73 @@ make jack-run
 The following unit generators (UGens) are included:
 
 - `SinOsc` - Sine wave oscillator
+- `SawDPW` - Differentiated parabolic wave saw oscillator
+- `LFTri` - Low-frequency triangle oscillator
 - `EnvelopeAR` - Attack-release envelope generator
+- `EnvelopeADSR` - Attack-decay-sustain-release envelope generator
 - `LFNoise2` - Interpolated low-frequency noise generator
 - `Pan2` - Stereo panner
+- `Balance2` - Stereo balance control
+- `Lag` - Exponential lag filter for smoothing control signals
+- `XLine` - Exponential line generator
+- `Downsampler` - Downsampler with anti-aliasing filter for oversampling workflows
+- `StereoDownsampler` - Stereo version of Downsampler
+
+### Composite UGens
+
+- `SuperSaw` - 7-voice unison saw oscillator with vibrato and filtering
+
+### Moog Ladder Filters
+
+- `StilsonMoogLadder` - Stilson model
+- `MicrotrackerMoogLadder` - Microtracker model
+- `KrajeskiMoogLadder` - Krajeski model
+- `MusicDSPMoogLadder` - MusicDSP model
+- `OberheimMoogLadder` - Oberheim variation
+- `ImprovedMoogLadder` - D'Angelo/Valimaki improved model
+- `RKSimulationMoogLadder` - Runge-Kutta simulation model
+
+## Oversampling
+
+The library supports oversampling workflows for improved audio quality. When running UGens at a higher internal sample rate (e.g., 96kHz) and outputting to a lower rate (e.g., 48kHz), use the `Downsampler` or `StereoDownsampler` UGens to convert the signal with proper anti-aliasing.
+
+Example usage with 2x oversampling:
+
+```cpp
+#include <subcollider.h>
+
+using namespace subcollider;
+using namespace subcollider::ugens;
+
+// Configuration
+constexpr size_t OVERSAMPLE_FACTOR = 2;
+constexpr float OUTPUT_RATE = 48000.0f;
+constexpr float INTERNAL_RATE = OUTPUT_RATE * OVERSAMPLE_FACTOR;  // 96kHz
+
+// Initialize UGens at the oversampled rate
+SuperSaw supersaw;
+supersaw.init(INTERNAL_RATE);
+
+// Initialize downsampler for output
+StereoDownsampler downsampler;
+downsampler.init(OUTPUT_RATE, OVERSAMPLE_FACTOR);
+
+// In your audio callback (at output rate):
+for (size_t i = 0; i < outputFrames; ++i) {
+    // Generate OVERSAMPLE_FACTOR samples at the higher rate
+    for (size_t j = 0; j < OVERSAMPLE_FACTOR; ++j) {
+        Stereo sample = supersaw.tick();
+        downsampler.write(sample);
+    }
+    
+    // Read one downsampled output sample
+    Stereo output = downsampler.read();
+    outputL[i] = output.left;
+    outputR[i] = output.right;
+}
+```
+
+See `examples/supersaw_example.cpp` for a complete working example with JACK audio.
 
 
 ## Building
