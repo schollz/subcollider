@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(SUBCOLLIDER_BUILD_TESTS "Build unit tests" ON)
 option(SUBCOLLIDER_BUILD_EXAMPLES "Build example applications" ON)
 option(SUBCOLLIDER_BUILD_JACK_EXAMPLE "Build JACK audio example (requires JACK)" OFF)
+option(SUBCOLLIDER_BUILD_MOOG_EXAMPLE "Build Moog filter example (requires JACK and X11)" OFF)
 
 # Header-only library
 add_library(subcollider INTERFACE)
@@ -63,11 +64,23 @@ endif()
 if(SUBCOLLIDER_BUILD_JACK_EXAMPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(JACK REQUIRED jack)
-    
+
     add_executable(example_jack examples/jack_example.cpp)
     target_link_libraries(example_jack PRIVATE subcollider ${JACK_LIBRARIES})
     target_include_directories(example_jack PRIVATE ${JACK_INCLUDE_DIRS})
     target_compile_options(example_jack PRIVATE ${JACK_CFLAGS_OTHER})
+endif()
+
+# Moog example (optional, requires JACK and X11)
+if(SUBCOLLIDER_BUILD_MOOG_EXAMPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(JACK REQUIRED jack)
+    find_package(X11 REQUIRED)
+
+    add_executable(example_moog examples/moog_example.cpp)
+    target_link_libraries(example_moog PRIVATE subcollider ${JACK_LIBRARIES} ${X11_LIBRARIES})
+    target_include_directories(example_moog PRIVATE ${JACK_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
+    target_compile_options(example_moog PRIVATE ${JACK_CFLAGS_OTHER})
 endif()
 
 # Installation

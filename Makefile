@@ -7,7 +7,8 @@ BUILD_DIR := build
 # CMake configuration flags
 CMAKE_FLAGS := -DSUBCOLLIDER_BUILD_TESTS=ON \
                -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
-               -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF
+               -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF \
+               -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF
 
 # Default target
 .PHONY: all
@@ -24,6 +25,7 @@ help:
 	@echo "  make benchmark  - Build and run UGen benchmarks"
 	@echo "  make jack       - Build JACK audio example"
 	@echo "  make jack-run   - Build and run JACK example with auto-connection"
+	@echo "  make moog       - Build and run Moog filter example with auto-connection"
 	@echo "  make basic      - Build basic example"
 	@echo "  make clean      - Remove build directory"
 	@echo "  make help       - Show this help message"
@@ -32,6 +34,7 @@ help:
 	@echo "  - CMake 3.14+"
 	@echo "  - C++17 compatible compiler"
 	@echo "  - JACK: libjack-dev (or libjack-jackd2-dev) for JACK example"
+	@echo "  - X11: libx11-dev for Moog example"
 
 # Configure CMake (internal target)
 $(BUILD_DIR)/Makefile:
@@ -58,8 +61,12 @@ benchmark: $(BUILD_DIR)/Makefile
 
 # Build JACK example
 .PHONY: jack
-jack: $(BUILD_DIR)/Makefile
+jack:
 	@echo "Building JACK example..."
+	@cmake -B $(BUILD_DIR) -DSUBCOLLIDER_BUILD_TESTS=ON \
+	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
+	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=ON \
+	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF
 	@cmake --build $(BUILD_DIR) --target example_jack
 	@echo ""
 	@echo "✓ Built: $(BUILD_DIR)/example_jack"
@@ -72,7 +79,14 @@ jack: $(BUILD_DIR)/Makefile
 
 # Build and run JACK example with auto-connection
 .PHONY: jack-run
-jack-run: jack
+jack-run:
+	@echo "Building JACK example..."
+	@cmake -B $(BUILD_DIR) -DSUBCOLLIDER_BUILD_TESTS=ON \
+	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
+	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=ON \
+	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF
+	@cmake --build $(BUILD_DIR) --target example_jack
+	@echo ""
 	@echo "Starting JACK example with auto-connection..."
 	@echo "(Make sure JACK server is running)"
 	@echo ""
@@ -102,6 +116,28 @@ basic-run: basic
 	@echo "Running basic example..."
 	@echo ""
 	@./$(BUILD_DIR)/example_basic
+
+# Build and run Moog filter example with auto-connection
+.PHONY: moog
+moog:
+	@echo "Building Moog filter example..."
+	@cmake -B $(BUILD_DIR) -DSUBCOLLIDER_BUILD_TESTS=ON \
+	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
+	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF \
+	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=ON
+	@cmake --build $(BUILD_DIR) --target example_moog
+	@echo ""
+	@echo "Starting Moog filter example with auto-connection..."
+	@echo "(Make sure JACK server is running)"
+	@echo ""
+	@# Start connection helper in background, then run the program in foreground
+	@(sleep 0.8 && \
+	  echo "[Connecting to system playback...]" && \
+	  jack_connect subcollider_moog:output_L system:playback_1 2>/dev/null && \
+	  jack_connect subcollider_moog:output_R system:playback_2 2>/dev/null && \
+	  echo "[Connected to system:playback_1 and system:playback_2]" \
+	) & \
+	./$(BUILD_DIR)/example_moog
 
 # Clean build directory
 .PHONY: clean
