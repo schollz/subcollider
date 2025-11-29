@@ -3,9 +3,7 @@
  * @brief JACK audio file playback example using Phasor and BufRd.
  *
  * This example demonstrates loading an audio file using libsndfile and playing
- * it back in a loop using the Phasor and BufRd UGens. The playback rate is
- * automatically scaled to match the difference between the server sample rate
- * (with 2x oversampling at 96kHz) and the file's original sample rate.
+ * it back in a loop using the Phasor and BufRd UGens.
  *
  * Compile with: -ljack -lsndfile
  *
@@ -19,7 +17,6 @@
 #include <subcollider/BufferAllocator.h>
 #include <subcollider/ugens/Phasor.h>
 #include <subcollider/ugens/BufRd.h>
-#include <subcollider/ugens/Downsampler.h>
 #include <jack/jack.h>
 #include <sndfile.h>
 #include <iostream>
@@ -31,20 +28,16 @@
 using namespace subcollider;
 using namespace subcollider::ugens;
 
-// Configuration
-static constexpr float INTERNAL_SAMPLE_RATE = 96000.0f;  // 2x oversampling
-
 // Global state for JACK callback
 static BufferAllocator<> g_allocator;
 static Buffer g_audioBuffer;
 static Phasor g_phasor;
 static BufRd g_bufRd;
-static Downsampler g_downsamplerL;
-static Downsampler g_downsamplerR;
 static jack_port_t* g_outputPortL = nullptr;
 static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static float g_fileSampleRate = 0.0f;
+static float g_jackSampleRate = 0.0f;
 
 /**
  * @brief Load audio file using libsndfile.
@@ -105,7 +98,7 @@ bool loadAudioFile(const char* filename) {
  * @brief JACK process callback - ISR-safe audio processing.
  *
  * This function is called by JACK for each audio block.
- * Processes audio at 96kHz internally, then downsamples to JACK's rate.
+ * Directly reads from buffer without oversampling for simplicity.
  */
 int jackProcessCallback(jack_nframes_t nframes, void*) {
     // Get output buffers from JACK (stereo)
@@ -116,35 +109,16 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         static_cast<jack_default_audio_sample_t*>(
             jack_port_get_buffer(g_outputPortR, nframes));
 
-    // Process at 2x oversampling rate (96kHz)
-    // For each output frame, we need to generate 2 internal frames
-    constexpr size_t oversampleFactor = 2;
-    const size_t internalFrames = nframes * oversampleFactor;
-
-    // Temporary buffers for oversampled audio (max 2048 frames at 2x = 4096 samples)
-    constexpr size_t MAX_BUFFER_SIZE = 4096;
-    static float tempL[MAX_BUFFER_SIZE];
-    static float tempR[MAX_BUFFER_SIZE];
-
-    if (internalFrames > MAX_BUFFER_SIZE) {
-        std::cerr << "Warning: Buffer size exceeds maximum!" << std::endl;
-        return 0;
-    }
-
-    // Generate audio at 96kHz using Phasor and BufRd
-    for (size_t i = 0; i < internalFrames; ++i) {
-        // Get phase from Phasor
+    // Generate audio directly at JACK's sample rate
+    for (jack_nframes_t i = 0; i < nframes; ++i) {
+        // Get phase from Phasor (index into buffer)
         float phase = g_phasor.tick();
 
         // Read from buffer at that phase
         Stereo sample = g_bufRd.tickStereo(phase);
-        tempL[i] = sample.left;
-        tempR[i] = sample.right;
+        outL[i] = sample.left;
+        outR[i] = sample.right;
     }
-
-    // Downsample back to JACK's sample rate
-    g_downsamplerL.process(tempL, outL, nframes);
-    g_downsamplerR.process(tempR, outR, nframes);
 
     return 0;
 }
@@ -154,11 +128,7 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
  */
 int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     std::cout << "JACK sample rate changed to: " << nframes << " Hz" << std::endl;
-
-    // Initialize downsamplers for the new rate (outputRate, oversampleFactor)
-    g_downsamplerL.init(static_cast<float>(nframes), 2);
-    g_downsamplerR.init(static_cast<float>(nframes), 2);
-
+    g_jackSampleRate = static_cast<float>(nframes);
     return 0;
 }
 
@@ -192,15 +162,7 @@ int main(int argc, char* argv[]) {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
-    // Initialize buffer allocator
-    g_allocator.init(INTERNAL_SAMPLE_RATE);
-
-    // Load audio file
-    if (!loadAudioFile(audioFile)) {
-        return 1;
-    }
-
-    // Open JACK client
+    // Open JACK client first to get the sample rate
     jack_status_t status;
     jack_client_t* client = jack_client_open("subcollider_playback", JackNoStartServer, &status);
 
@@ -212,43 +174,43 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << std::endl << "Connected to JACK server" << std::endl;
+    std::cout << "Connected to JACK server" << std::endl;
 
     // Get JACK sample rate
-    jack_nframes_t jackSampleRate = jack_get_sample_rate(client);
-    std::cout << "JACK sample rate: " << jackSampleRate << " Hz" << std::endl;
-    std::cout << "Internal processing rate: " << INTERNAL_SAMPLE_RATE << " Hz (2x oversampling)" << std::endl;
+    g_jackSampleRate = static_cast<float>(jack_get_sample_rate(client));
+    std::cout << "JACK sample rate: " << g_jackSampleRate << " Hz" << std::endl;
 
-    // Initialize Phasor for playback
-    // The Phasor will generate indices from 0 to numSamples
-    // We need to scale the rate to account for:
-    // 1. The internal sample rate (96kHz)
-    // 2. The file's original sample rate
-    g_phasor.init(INTERNAL_SAMPLE_RATE);
+    // Initialize buffer allocator with file's sample rate (will be set when loading)
+    g_allocator.init(g_jackSampleRate);
+
+    // Load audio file
+    if (!loadAudioFile(audioFile)) {
+        jack_client_close(client);
+        return 1;
+    }
+
+    // Initialize Phasor for playback at JACK's sample rate
+    // The Phasor generates indices from 0 to numSamples
+    g_phasor.init(g_jackSampleRate);
 
     // Calculate playback rate
-    // The Phasor rate is how many samples to advance per tick.
-    // Since we want to play at the original speed:
-    // - If file rate matches internal rate: rate = 1.0 (advance 1 sample per tick)
-    // - If file rate < internal rate: rate < 1.0 (play slower to compensate)
-    // - If file rate > internal rate: rate > 1.0 (play faster to compensate)
-    // rate = fileSampleRate / INTERNAL_SAMPLE_RATE
-    float playbackRate = g_fileSampleRate / INTERNAL_SAMPLE_RATE;
+    // The Phasor rate is how many samples (in the file) to advance per tick.
+    // If file sample rate matches JACK rate: rate = 1.0 (advance 1 sample per tick)
+    // If file rate < JACK rate: rate < 1.0 (file is slower, we interpolate)
+    // If file rate > JACK rate: rate > 1.0 (file is faster, we skip samples)
+    float playbackRate = g_fileSampleRate / g_jackSampleRate;
     float numSamplesFloat = static_cast<float>(g_audioBuffer.numSamples);
 
     g_phasor.set(playbackRate, 0.0f, numSamplesFloat, 0.0f);
 
-    std::cout << "Playback rate scaling: " << playbackRate << std::endl;
+    std::cout << "File sample rate: " << g_fileSampleRate << " Hz" << std::endl;
+    std::cout << "Playback rate: " << playbackRate << std::endl;
     std::cout << "Buffer length: " << g_audioBuffer.numSamples << " samples" << std::endl;
 
     // Initialize BufRd
     g_bufRd.init(&g_audioBuffer);
     g_bufRd.setLoop(true);
     g_bufRd.setInterpolation(2);  // Linear interpolation
-
-    // Initialize downsamplers (outputRate, oversampleFactor)
-    g_downsamplerL.init(static_cast<float>(jackSampleRate), 2);
-    g_downsamplerR.init(static_cast<float>(jackSampleRate), 2);
 
     // Set callbacks
     jack_set_process_callback(client, jackProcessCallback, nullptr);
@@ -283,11 +245,9 @@ int main(int argc, char* argv[]) {
     // Main loop - just wait for Ctrl+C
     while (g_running.load()) {
         // Sleep to avoid busy-waiting
-        jack_nframes_t sleepTime = 100000;  // 100ms in microseconds
-        jack_time_t sleepNanos = sleepTime * 1000;
         struct timespec ts;
-        ts.tv_sec = sleepNanos / 1000000000;
-        ts.tv_nsec = sleepNanos % 1000000000;
+        ts.tv_sec = 0;
+        ts.tv_nsec = 100000000;  // 100ms
         nanosleep(&ts, nullptr);
     }
 
