@@ -58,11 +58,8 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         lastNoteOn = currentNoteOn;
     }
 
-    // Process audio block to left channel
-    g_voice.process(outL, nframes);
-
-    // Copy to right channel for stereo output
-    std::memcpy(outR, outL, nframes * sizeof(jack_default_audio_sample_t));
+    // Process stereo audio block
+    g_voice.process(outL, outR, nframes);
 
     return 0;
 }

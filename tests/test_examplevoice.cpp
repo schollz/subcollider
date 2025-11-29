@@ -37,7 +37,8 @@ int test_examplevoice() {
 
         bool allSilent = true;
         for (int i = 0; i < 100; ++i) {
-            if (voice.tick() != 0.0f) {
+            Stereo sample = voice.tick();
+            if (sample.left != 0.0f || sample.right != 0.0f) {
                 allSilent = false;
                 break;
             }
@@ -53,7 +54,8 @@ int test_examplevoice() {
 
         bool hasOutput = false;
         for (int i = 0; i < 100; ++i) {
-            if (voice.tick() != 0.0f) {
+            Stereo sample = voice.tick();
+            if (sample.left != 0.0f || sample.right != 0.0f) {
                 hasOutput = true;
                 break;
             }
@@ -71,9 +73,9 @@ int test_examplevoice() {
         bool inRange = true;
         for (int i = 0; i < 10000; ++i) {
             if (i == 500) voice.release();
-            Sample s = voice.tick();
+            Stereo s = voice.tick();
             // Should be in range [-1, 1] with amplitude 1.0
-            if (s < -1.1f || s > 1.1f) {  // Small tolerance for floating point
+            if (s.left < -1.1f || s.left > 1.1f || s.right < -1.1f || s.right > 1.1f) {
                 inRange = false;
                 break;
             }
@@ -121,14 +123,16 @@ int test_examplevoice() {
         voice.init(48000.0f);
         voice.trigger();
 
-        Sample buffer[64] = {};
-        voice.process(buffer, 64);
+        Sample bufferL[64] = {};
+        Sample bufferR[64] = {};
+        voice.process(bufferL, bufferR, 64);
 
         bool hasOutput = false;
         bool allValid = true;
         for (int i = 0; i < 64; ++i) {
-            if (buffer[i] != 0.0f) hasOutput = true;
-            if (std::isnan(buffer[i]) || std::isinf(buffer[i])) {
+            if (bufferL[i] != 0.0f || bufferR[i] != 0.0f) hasOutput = true;
+            if (std::isnan(bufferL[i]) || std::isinf(bufferL[i]) ||
+                std::isnan(bufferR[i]) || std::isinf(bufferR[i])) {
                 allValid = false;
                 break;
             }
@@ -143,14 +147,18 @@ int test_examplevoice() {
         voice.init(48000.0f);
         voice.trigger();
 
-        Sample buffer[64];
-        for (int i = 0; i < 64; ++i) buffer[i] = 1.0f;
+        Sample bufferL[64];
+        Sample bufferR[64];
+        for (int i = 0; i < 64; ++i) {
+            bufferL[i] = 1.0f;
+            bufferR[i] = 1.0f;
+        }
 
-        voice.processAdd(buffer, 64);
+        voice.processAdd(bufferL, bufferR, 64);
 
         bool added = false;
         for (int i = 0; i < 64; ++i) {
-            if (buffer[i] != 1.0f) {
+            if (bufferL[i] != 1.0f || bufferR[i] != 1.0f) {
                 added = true;
                 break;
             }

@@ -38,6 +38,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_sinosc.cpp
         tests/test_envelopear.cpp
         tests/test_lfnoise2.cpp
+        tests/test_pan2.cpp
         tests/test_audioloop.cpp
         tests/test_examplevoice.cpp
     )

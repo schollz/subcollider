@@ -13,6 +13,7 @@ int test_types();
 int test_sinosc();
 int test_envelopear();
 int test_lfnoise2();
+int test_pan2();
 int test_audioloop();
 int test_examplevoice();
 
@@ -32,6 +33,9 @@ int main() {
 
     std::cout << "--- LFNoise2 Tests ---" << std::endl;
     failures += test_lfnoise2();
+
+    std::cout << "--- Pan2 Tests ---" << std::endl;
+    failures += test_pan2();
 
     std::cout << "--- AudioLoop Tests ---" << std::endl;
     failures += test_audioloop();

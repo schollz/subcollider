@@ -54,6 +54,26 @@ inline constexpr Sample clamp(Sample value, Sample min, Sample max) noexcept {
     return value < min ? min : (value > max ? max : value);
 }
 
+/**
+ * @brief Stereo sample pair for dual-channel audio.
+ *
+ * Simple struct to represent a stereo signal with left and right channels.
+ * Used for stereo processing UGens and voice outputs.
+ */
+struct Stereo {
+    Sample left;   ///< Left channel sample
+    Sample right;  ///< Right channel sample
+
+    /// Default constructor - initialize to silence
+    constexpr Stereo() noexcept : left(0.0f), right(0.0f) {}
+
+    /// Construct with specific left/right values
+    constexpr Stereo(Sample l, Sample r) noexcept : left(l), right(r) {}
+
+    /// Construct mono signal (same value in both channels)
+    explicit constexpr Stereo(Sample mono) noexcept : left(mono), right(mono) {}
+};
+
 } // namespace subcollider
 
 #endif // SUBCOLLIDER_TYPES_H
