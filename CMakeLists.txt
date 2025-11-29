@@ -56,6 +56,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_buffer.cpp
         tests/test_bufferallocator.cpp
         tests/test_bufrd.cpp
+        tests/test_bufrd_phasor.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     

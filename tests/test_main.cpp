@@ -28,6 +28,7 @@ int test_downsampler();
 int test_buffer();
 int test_bufferallocator();
 int test_bufrd();
+int test_bufrd_phasor();
 
 int main() {
     int failures = 0;
@@ -90,6 +91,9 @@ int main() {
 
     std::cout << "--- BufRd Tests ---" << std::endl;
     failures += test_bufrd();
+
+    std::cout << "--- BufRd + Phasor Tests ---" << std::endl;
+    failures += test_bufrd_phasor();
 
     std::cout << std::endl;
     if (failures == 0) {
