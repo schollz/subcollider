@@ -45,7 +45,7 @@ $(BUILD_DIR)/Makefile:
 .PHONY: test
 test: $(BUILD_DIR)/Makefile
 	@echo "Building tests..."
-	@cmake --build $(BUILD_DIR) --target subcollider_tests
+	@cmake --build $(BUILD_DIR) --target subcollider_tests -j
 	@echo ""
 	@echo "Running tests..."
 	@echo ""
@@ -55,7 +55,7 @@ test: $(BUILD_DIR)/Makefile
 .PHONY: benchmark
 benchmark: $(BUILD_DIR)/Makefile
 	@echo "Building benchmarks..."
-	@cmake --build $(BUILD_DIR) --target subcollider_benchmark
+	@cmake --build $(BUILD_DIR) --target subcollider_benchmark -j
 	@echo ""
 	@./$(BUILD_DIR)/subcollider_benchmark
 
@@ -67,7 +67,7 @@ jack:
 	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
 	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=ON \
 	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF
-	@cmake --build $(BUILD_DIR) --target example_jack
+	@cmake --build $(BUILD_DIR) --target example_jack -j
 	@echo ""
 	@echo "✓ Built: $(BUILD_DIR)/example_jack"
 	@echo ""
@@ -85,7 +85,7 @@ jack-run:
 	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
 	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=ON \
 	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF
-	@cmake --build $(BUILD_DIR) --target example_jack
+	@cmake --build $(BUILD_DIR) --target example_jack -j
 	@echo ""
 	@echo "Starting JACK example with auto-connection..."
 	@echo "(Make sure JACK server is running)"
@@ -103,7 +103,7 @@ jack-run:
 .PHONY: basic
 basic: $(BUILD_DIR)/Makefile
 	@echo "Building basic example..."
-	@cmake --build $(BUILD_DIR) --target example_basic
+	@cmake --build $(BUILD_DIR) --target example_basic -j
 	@echo ""
 	@echo "✓ Built: $(BUILD_DIR)/example_basic"
 	@echo ""
@@ -125,7 +125,7 @@ moog:
 	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
 	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF \
 	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=ON
-	@cmake --build $(BUILD_DIR) --target example_moog
+	@cmake --build $(BUILD_DIR) --target example_moog -j
 	@echo ""
 	@echo "Starting Moog filter example with auto-connection..."
 	@echo "(Make sure JACK server is running)"
