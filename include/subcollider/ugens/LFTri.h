@@ -58,19 +58,20 @@ struct LFTri {
      * @brief Initialize the oscillator.
      * @param sr Sample rate in Hz (default: 48000)
      * @param iphase Initial phase offset [0, 4] (default: 0)
-     *               Phase 0 and 2 start at 0 crossing going up/down
-     *               Phase 1 starts at +1 (peak)
-     *               Phase 3 starts at -1 (trough)
+     *               iphase 0 starts at -1 (trough)
+     *               iphase 1 starts at 0 (going up)
+     *               iphase 2 starts at +1 (peak)
+     *               iphase 3 starts at 0 (going down)
      */
     void init(Sample sr = DEFAULT_SAMPLE_RATE, Sample iphase = 0.0f) noexcept {
         sampleRate = sr;
         frequency = 440.0f;
 
         // Convert initial phase from [0, 4] to [0, 1]
-        // iphase 0 = phase 0.25 (output 0, going up)
-        // iphase 1 = phase 0.5 (output +1, peak)
-        // iphase 2 = phase 0.75 (output 0, going down)
-        // iphase 3 = phase 0.0 (output -1, trough)
+        // iphase 0 = phase 0.0 (output -1, trough)
+        // iphase 1 = phase 0.25 (output 0, going up)
+        // iphase 2 = phase 0.5 (output +1, peak)
+        // iphase 3 = phase 0.75 (output 0, going down)
         phase = iphase * 0.25f;
 
         // Wrap phase to [0, 1]
@@ -102,17 +103,7 @@ struct LFTri {
      * @return Next sample value [-1, 1]
      */
     inline Sample tick() noexcept {
-        // Triangle wave: fold a ramp using absolute value
-        // Output = 4 * |phase - 0.5| - 1
-        // When phase = 0: output = 4 * 0.5 - 1 = 1
-        // When phase = 0.25: output = 4 * 0.25 - 1 = 0
-        // When phase = 0.5: output = 4 * 0 - 1 = -1
-        // When phase = 0.75: output = 4 * 0.25 - 1 = 0
-        // Wait, that gives peak at phase 0. Let me recalculate...
-        
-        // For standard triangle starting at -1 (trough) when phase = 0:
-        // Output = 1 - 4 * |phase - 0.25|  for phase in [0, 0.5]
-        // Actually, simpler: use piecewise linear
+        // Triangle wave using piecewise linear function:
         // phase [0, 0.5]: output = 4 * phase - 1   (goes from -1 to +1)
         // phase [0.5, 1]: output = 3 - 4 * phase   (goes from +1 to -1)
         
