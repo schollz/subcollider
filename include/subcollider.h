@@ -23,6 +23,7 @@
 #include "subcollider/ugens/Pan2.h"
 #include "subcollider/ugens/Balance2.h"
 #include "subcollider/ugens/Lag.h"
+#include "subcollider/ugens/XLine.h"
 
 // Moog Ladder Filters
 #include "subcollider/ugens/StilsonMoogLadder.h"
@@ -32,6 +33,9 @@
 #include "subcollider/ugens/OberheimMoogLadder.h"
 #include "subcollider/ugens/ImprovedMoogLadder.h"
 #include "subcollider/ugens/RKSimulationMoogLadder.h"
+
+// Composite UGens
+#include "subcollider/ugens/SuperSaw.h"
 
 // Example voice
 #include "subcollider/ExampleVoice.h"

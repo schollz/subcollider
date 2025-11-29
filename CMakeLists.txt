@@ -10,6 +10,7 @@ option(SUBCOLLIDER_BUILD_TESTS "Build unit tests" ON)
 option(SUBCOLLIDER_BUILD_EXAMPLES "Build example applications" ON)
 option(SUBCOLLIDER_BUILD_JACK_EXAMPLE "Build JACK audio example (requires JACK)" OFF)
 option(SUBCOLLIDER_BUILD_MOOG_EXAMPLE "Build Moog filter example (requires JACK and X11)" OFF)
+option(SUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE "Build SuperSaw example (requires JACK and X11)" OFF)
 
 # Header-only library
 add_library(subcollider INTERFACE)
@@ -48,6 +49,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_examplevoice.cpp
         tests/test_moogladders.cpp
         tests/test_xline.cpp
+        tests/test_supersaw.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     
@@ -85,6 +87,18 @@ if(SUBCOLLIDER_BUILD_MOOG_EXAMPLE)
     target_link_libraries(example_moog PRIVATE subcollider ${JACK_LIBRARIES} ${X11_LIBRARIES})
     target_include_directories(example_moog PRIVATE ${JACK_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
     target_compile_options(example_moog PRIVATE ${JACK_CFLAGS_OTHER})
+endif()
+
+# SuperSaw example (optional, requires JACK and X11)
+if(SUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(JACK REQUIRED jack)
+    find_package(X11 REQUIRED)
+
+    add_executable(example_supersaw examples/supersaw_example.cpp)
+    target_link_libraries(example_supersaw PRIVATE subcollider ${JACK_LIBRARIES} ${X11_LIBRARIES})
+    target_include_directories(example_supersaw PRIVATE ${JACK_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
+    target_compile_options(example_supersaw PRIVATE ${JACK_CFLAGS_OTHER})
 endif()
 
 # Installation
