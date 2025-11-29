@@ -75,6 +75,12 @@ struct RKSimulationMoogLadder {
     /// Resonance [0, 1]
     Sample resonance;
 
+    /// Input drive multiplier
+    double drive;
+
+    /// Makeup gain to compensate level loss at low cutoff
+    double makeupGain;
+
     /**
      * @brief Initialize the filter.
      * @param sr Sample rate in Hz (default: 48000)
@@ -86,6 +92,8 @@ struct RKSimulationMoogLadder {
         saturation = 3.0;
         saturationInv = 1.0 / saturation;
         cutoffCoeff = 0.0;
+        drive = 1.0;
+        makeupGain = 1.0;
 
         oversampleFactor = 1;
         stepSize = 1.0 / (oversampleFactor * sampleRate);
@@ -101,6 +109,13 @@ struct RKSimulationMoogLadder {
     void setCutoff(Sample c) noexcept {
         cutoff = c;
         cutoffCoeff = 2.0 * PI * cutoff;
+
+        // Simple compensation to keep output level more consistent at low cutoff
+        double nyquist = sampleRate * 0.5;
+        double norm = nyquist > 0.0 ? static_cast<double>(cutoff) / nyquist : 0.0;
+        norm = norm < 0.0 ? 0.0 : (norm > 1.0 ? 1.0 : norm);
+        makeupGain = 1.0 / (0.2 + norm);
+        if (makeupGain > 8.0) makeupGain = 8.0;
     }
 
     /**
@@ -109,6 +124,14 @@ struct RKSimulationMoogLadder {
      */
     void setResonance(Sample r) noexcept {
         resonance = r < 0.0f ? 0.0f : (r > 1.0f ? 1.0f : r);
+    }
+
+    /**
+     * @brief Set input drive (pre-saturation gain).
+     * @param d Drive multiplier (1.0 = unity)
+     */
+    void setDrive(Sample d) noexcept {
+        drive = d < 0.0f ? 0.0f : static_cast<double>(d);
     }
 
     /**
@@ -121,7 +144,7 @@ struct RKSimulationMoogLadder {
             rungekutteSolver(input);
         }
 
-        return static_cast<Sample>(state[3]);
+        return static_cast<Sample>(state[3] * makeupGain);
     }
 
     /**
@@ -164,7 +187,7 @@ private:
         double satstate1 = clip(currentState[1]);
         double satstate2 = clip(currentState[2]);
 
-        dstate[0] = cutoffCoeff * (clip(input - res * currentState[3]) - satstate0);
+        dstate[0] = cutoffCoeff * (clip(input * drive - res * currentState[3]) - satstate0);
         dstate[1] = cutoffCoeff * (satstate0 - satstate1);
         dstate[2] = cutoffCoeff * (satstate1 - satstate2);
         dstate[3] = cutoffCoeff * (satstate2 - clip(currentState[3]));

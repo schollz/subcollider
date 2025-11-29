@@ -44,7 +44,7 @@ static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static std::atomic<float> g_cutoff{5000.0f};
 static std::atomic<float> g_drive{0.0f};  // normalized 0..1
-static constexpr float RESONANCE = 0.5f;
+static constexpr float RESONANCE = 0.1f;
 
 // Mouse control parameters
 static constexpr float MIN_CUTOFF = 100.0f;

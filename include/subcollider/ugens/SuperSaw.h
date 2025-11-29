@@ -15,7 +15,7 @@
 #include "LFTri.h"
 #include "Pan2.h"
 #include "EnvelopeADSR.h"
-#include "ImprovedMoogLadder.h"
+#include "RKSimulationMoogLadder.h"
 #include "XLine.h"
 #include <cmath>
 #include <random>
@@ -67,7 +67,7 @@ struct SuperSaw {
 
     // Shared components
     EnvelopeADSR envelope;
-    ImprovedMoogLadder filter;
+    RKSimulationMoogLadder filter;
     XLine filterLine;
 
     // Parameters
