@@ -57,6 +57,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_bufferallocator.cpp
         tests/test_bufrd.cpp
         tests/test_bufrd_phasor.cpp
+        tests/test_playback_oversampling.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     
