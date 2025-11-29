@@ -18,7 +18,8 @@ using namespace subcollider;
     }
 
 // Use smaller pool size for tests to avoid large memory usage
-using TestAllocator = BufferAllocator<48000, 16>;  // 1 second at 48kHz, 16 blocks max
+// 48000 floats total (not per channel), 16 blocks max
+using TestAllocator = BufferAllocator<48000, 16>;
 
 int test_bufferallocator() {
     int failures = 0;

@@ -139,11 +139,13 @@ public:
         }
 
         // Find the block corresponding to this buffer
+        // Note: pool_ + PoolSamples is a valid one-past-the-end pointer for bounds checking
         const Sample* start = buf.data;
         if (start < pool_ || start >= pool_ + PoolSamples) {
             return false;  // Not from this pool
         }
 
+        // Safe cast: we've verified start is within pool_ bounds
         const size_t offset = static_cast<size_t>(start - pool_);
 
         for (size_t i = 0; i < blockCount_; ++i) {
@@ -299,6 +301,9 @@ private:
 
     /// Merge adjacent free blocks to reduce fragmentation
     void mergeAdjacentFreeBlocks() noexcept {
+        if (blockCount_ <= 1) {
+            return;  // Nothing to merge
+        }
         size_t i = 0;
         while (i < blockCount_ - 1) {
             if (!blocks_[i].used && !blocks_[i + 1].used) {
