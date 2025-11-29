@@ -227,15 +227,16 @@ int main(int argc, char* argv[]) {
     g_phasor.init(INTERNAL_SAMPLE_RATE);
 
     // Calculate playback rate
-    // rate = (end - start) * playbackFrequency / sampleRate
-    // playbackFrequency = fileSampleRate / bufferDuration
+    // The Phasor rate is how many samples to advance per tick.
     // Since we want to play at the original speed:
-    // rate = numSamples * (fileSampleRate / numSamples) / INTERNAL_SAMPLE_RATE
+    // - If file rate matches internal rate: rate = 1.0 (advance 1 sample per tick)
+    // - If file rate < internal rate: rate < 1.0 (play slower to compensate)
+    // - If file rate > internal rate: rate > 1.0 (play faster to compensate)
     // rate = fileSampleRate / INTERNAL_SAMPLE_RATE
     float playbackRate = g_fileSampleRate / INTERNAL_SAMPLE_RATE;
     float numSamplesFloat = static_cast<float>(g_audioBuffer.numSamples);
 
-    g_phasor.set(playbackRate * numSamplesFloat, 0.0f, numSamplesFloat, 0.0f);
+    g_phasor.set(playbackRate, 0.0f, numSamplesFloat, 0.0f);
 
     std::cout << "Playback rate scaling: " << playbackRate << std::endl;
     std::cout << "Buffer length: " << g_audioBuffer.numSamples << " samples" << std::endl;

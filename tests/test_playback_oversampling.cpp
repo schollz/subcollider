@@ -219,10 +219,11 @@ int test_playback_oversampling() {
         phasor.init(INTERNAL_SAMPLE_RATE);
 
         // Calculate playback rate (matching jack_playback_example.cpp)
+        // rate = fileSampleRate / INTERNAL_SAMPLE_RATE
         Sample playbackRate = static_cast<Sample>(fileSampleRate) / INTERNAL_SAMPLE_RATE;
         Sample numSamplesFloat = static_cast<Sample>(buf.numSamples);
 
-        phasor.set(playbackRate * numSamplesFloat, 0.0f, numSamplesFloat, 0.0f);
+        phasor.set(playbackRate, 0.0f, numSamplesFloat, 0.0f);
 
         // Initialize BufRd
         BufRd bufRd;
@@ -286,6 +287,27 @@ int test_playback_oversampling() {
         TEST("Output level is reasonable (not clipping)", maxAbsValue < 2.0f);
         TEST("Output level shows audio present", maxAbsValue > 0.0f);
 
+        // Test that playback speed is correct
+        // After processing NUM_BLOCKS * BLOCK_SIZE output samples,
+        // the phasor should have advanced proportionally through the buffer.
+        // Total internal ticks = NUM_BLOCKS * INTERNAL_FRAMES
+        // Expected position = total_ticks * playbackRate
+        size_t totalInternalTicks = NUM_BLOCKS * INTERNAL_FRAMES;
+        Sample expectedPosition = static_cast<Sample>(totalInternalTicks) * playbackRate;
+        Sample actualPosition = phasor.value;
+        
+        // Since the buffer loops, we need to compare modulo numSamples
+        Sample expectedMod = std::fmod(expectedPosition, numSamplesFloat);
+        Sample actualMod = std::fmod(actualPosition, numSamplesFloat);
+        
+        // They should be close (within a few samples due to floating point)
+        Sample posDiff = std::abs(expectedMod - actualMod);
+        // Handle wrap-around case
+        if (posDiff > numSamplesFloat / 2) {
+            posDiff = numSamplesFloat - posDiff;
+        }
+        TEST("Phasor position is correct (playback speed verification)", posDiff < 10.0f);
+
         // Release buffer
         allocator.release(buf);
     }
@@ -330,7 +352,7 @@ int test_playback_oversampling() {
             Phasor phasor;
             phasor.init(INTERNAL_SAMPLE_RATE);
             Sample playbackRate = static_cast<Sample>(fileSampleRate) / INTERNAL_SAMPLE_RATE;
-            phasor.set(playbackRate * static_cast<Sample>(buf.numSamples), 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
+            phasor.set(playbackRate, 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
 
             BufRd bufRd;
             bufRd.init(&buf);
@@ -367,7 +389,7 @@ int test_playback_oversampling() {
             Phasor phasor;
             phasor.init(INTERNAL_SAMPLE_RATE);
             Sample playbackRate = static_cast<Sample>(fileSampleRate) / INTERNAL_SAMPLE_RATE;
-            phasor.set(playbackRate * static_cast<Sample>(buf.numSamples), 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
+            phasor.set(playbackRate, 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
 
             BufRd bufRd;
             bufRd.init(&buf);
