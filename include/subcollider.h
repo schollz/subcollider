@@ -16,6 +16,7 @@
 // UGens
 #include "subcollider/ugens/SinOsc.h"
 #include "subcollider/ugens/SawDPW.h"
+#include "subcollider/ugens/LFTri.h"
 #include "subcollider/ugens/EnvelopeAR.h"
 #include "subcollider/ugens/LFNoise2.h"
 #include "subcollider/ugens/Pan2.h"
