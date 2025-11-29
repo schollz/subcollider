@@ -26,6 +26,7 @@ int test_phasor();
 int test_supersaw();
 int test_downsampler();
 int test_buffer();
+int test_bufferallocator();
 
 int main() {
     int failures = 0;
@@ -82,6 +83,9 @@ int main() {
 
     std::cout << "--- Buffer Tests ---" << std::endl;
     failures += test_buffer();
+
+    std::cout << "--- BufferAllocator Tests ---" << std::endl;
+    failures += test_bufferallocator();
 
     std::cout << std::endl;
     if (failures == 0) {

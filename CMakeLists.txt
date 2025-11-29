@@ -53,6 +53,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_supersaw.cpp
         tests/test_downsampler.cpp
         tests/test_buffer.cpp
+        tests/test_bufferallocator.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     
