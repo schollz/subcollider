@@ -1,10 +1,15 @@
 /**
  * @file supersaw_example.cpp
- * @brief Interactive SuperSaw example with mouse control.
+ * @brief Interactive SuperSaw example with mouse control and 2x oversampling.
  *
  * This example demonstrates the SuperSaw composite UGen with 7 detuned
  * saw oscillators, vibrato, stereo spreading, and filtering.
  * Mouse X controls cutoff frequency, Mouse Y controls resonance.
+ *
+ * The UGens are initialized at 2x the JACK sample rate (e.g., 96kHz when
+ * JACK runs at 48kHz) for improved audio quality, particularly reducing
+ * aliasing in the saw wave oscillators. A StereoDownsampler with anti-aliasing
+ * filter is used to convert the oversampled audio to the JACK output rate.
  *
  * Compile with: -ljack -lX11
  *
@@ -26,10 +31,14 @@
 using namespace subcollider;
 using namespace subcollider::ugens;
 
+// Oversampling factor (2x for improved quality)
+static constexpr size_t OVERSAMPLE_FACTOR = 2;
+
 // Global state for JACK callback
 static SuperSaw g_supersaw;
 static Lag g_cutoffLag;
 static Lag g_resonanceLag;
+static StereoDownsampler g_downsampler;
 static jack_port_t* g_outputPortL = nullptr;
 static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
@@ -47,6 +56,9 @@ static constexpr float MAX_RESONANCE = 0.99f;
  *
  * This function is called by JACK for each audio block.
  * No heap allocation, no blocking, no virtual calls.
+ *
+ * Audio is generated at 2x the output sample rate, then downsampled
+ * with anti-aliasing for improved quality.
  */
 int jackProcessCallback(jack_nframes_t nframes, void*) {
     // Get output buffers from JACK (stereo)
@@ -57,26 +69,35 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         static_cast<jack_default_audio_sample_t*>(
             jack_port_get_buffer(g_outputPortR, nframes));
 
-    // Generate and filter audio
+    // Generate and filter audio with 2x oversampling
     for (jack_nframes_t i = 0; i < nframes; ++i) {
-        // Smooth the cutoff and resonance values using Lag
-        Sample smoothCutoff = g_cutoffLag.tick(g_cutoff.load(std::memory_order_relaxed));
-        Sample smoothResonance = g_resonanceLag.tick(g_resonance.load(std::memory_order_relaxed));
+        // Smooth the cutoff and resonance values using Lag (at oversampled rate)
+        // Read parameters at output rate to reduce atomic operations
+        Sample targetCutoff = g_cutoff.load(std::memory_order_relaxed);
+        Sample targetResonance = g_resonance.load(std::memory_order_relaxed);
 
-        // Update SuperSaw parameters with smoothed values
-        g_supersaw.setCutoff(smoothCutoff);
+        // Generate OVERSAMPLE_FACTOR samples at the higher rate
+        for (size_t j = 0; j < OVERSAMPLE_FACTOR; ++j) {
+            Sample smoothCutoff = g_cutoffLag.tick(targetCutoff);
+            Sample smoothResonance = g_resonanceLag.tick(targetResonance);
 
-        // Note: SuperSaw uses OberheimMoogLadder internally, so we need to access
-        // the filter directly. For now, we'll just control cutoff via the SuperSaw
-        // and set resonance on the internal filter
-        g_supersaw.filter.setResonance(smoothResonance);
+            // Update SuperSaw parameters with smoothed values
+            g_supersaw.setCutoff(smoothCutoff);
+            g_supersaw.filter.setResonance(smoothResonance);
 
-        // Generate SuperSaw output
-        Stereo sample = g_supersaw.tick();
+            // Generate SuperSaw output at oversampled rate
+            Stereo sample = g_supersaw.tick();
+
+            // Write to downsampler
+            g_downsampler.write(sample);
+        }
+
+        // Read one downsampled output sample
+        Stereo output = g_downsampler.read();
 
         // Output to both channels
-        outL[i] = sample.left * 1.0f;  // Reduce volume to prevent clipping
-        outR[i] = sample.right * 1.0f;
+        outL[i] = output.left;
+        outR[i] = output.right;
     }
 
     return 0;
@@ -84,12 +105,26 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
 
 /**
  * @brief JACK sample rate callback.
+ *
+ * Reinitializes all UGens at the oversampled rate when JACK sample rate changes.
  */
 int jackSampleRateCallback(jack_nframes_t nframes, void*) {
-    std::cout << "Sample rate changed to: " << nframes << " Hz" << std::endl;
-    g_supersaw.init(static_cast<float>(nframes));
-    g_cutoffLag.init(static_cast<float>(nframes), 0.2f);
-    g_resonanceLag.init(static_cast<float>(nframes), 0.2f);
+    // Calculate oversampled rate
+    float outputRate = static_cast<float>(nframes);
+    float internalRate = outputRate * OVERSAMPLE_FACTOR;
+
+    std::cout << "JACK sample rate: " << nframes << " Hz" << std::endl;
+    std::cout << "Internal (oversampled) rate: " << static_cast<int>(internalRate) << " Hz" << std::endl;
+
+    // Initialize SuperSaw at the oversampled rate
+    g_supersaw.init(internalRate);
+
+    // Initialize Lag filters at the oversampled rate (they run in the inner loop)
+    g_cutoffLag.init(internalRate, 0.2f);
+    g_resonanceLag.init(internalRate, 0.2f);
+
+    // Initialize downsampler
+    g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
 
     // Re-apply settings after init
     g_supersaw.setFrequency(55.0f);
@@ -165,12 +200,17 @@ int main() {
 
     std::cout << "Connected to JACK server" << std::endl;
 
-    // Get sample rate and initialize UGens
+    // Get sample rate and calculate oversampled rate
     jack_nframes_t sampleRate = jack_get_sample_rate(client);
-    std::cout << "Sample rate: " << sampleRate << " Hz" << std::endl;
+    float outputRate = static_cast<float>(sampleRate);
+    float internalRate = outputRate * OVERSAMPLE_FACTOR;
 
-    // Initialize SuperSaw
-    g_supersaw.init(static_cast<float>(sampleRate), 42);  // seed=42
+    std::cout << "JACK sample rate: " << sampleRate << " Hz" << std::endl;
+    std::cout << "Internal (oversampled) rate: " << static_cast<int>(internalRate) << " Hz" << std::endl;
+    std::cout << "Oversampling factor: " << OVERSAMPLE_FACTOR << "x" << std::endl;
+
+    // Initialize SuperSaw at the oversampled rate
+    g_supersaw.init(internalRate, 42);  // seed=42
     g_supersaw.setFrequency(55.0f);
     g_supersaw.setDetune(0.2f);           // 0.2 semitones detune
     g_supersaw.setVibratoRate(6.0f);      // 6 Hz vibrato
@@ -190,12 +230,15 @@ int main() {
     // Trigger the note (gate on)
     g_supersaw.gate(1.0f);
 
-    // Initialize Lag filters for smooth parameter changes (0.2 second lag time)
-    g_cutoffLag.init(static_cast<float>(sampleRate), 0.2f);
-    g_resonanceLag.init(static_cast<float>(sampleRate), 0.2f);
+    // Initialize Lag filters at the oversampled rate for smooth parameter changes
+    g_cutoffLag.init(internalRate, 0.2f);
+    g_resonanceLag.init(internalRate, 0.2f);
     // Set initial values to prevent initial transient
     g_cutoffLag.setValue(5000.0f);
     g_resonanceLag.setValue(0.3f);
+
+    // Initialize the stereo downsampler
+    g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
 
     // Set callbacks
     jack_set_process_callback(client, jackProcessCallback, nullptr);
@@ -228,6 +271,7 @@ int main() {
     std::cout << "JACK client activated" << std::endl;
     std::cout << std::endl;
     std::cout << "Playing SuperSaw at 55 Hz (7 detuned voices with vibrato)" << std::endl;
+    std::cout << "Using " << OVERSAMPLE_FACTOR << "x oversampling for improved audio quality" << std::endl;
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Move mouse horizontally (X) to control cutoff frequency" << std::endl;

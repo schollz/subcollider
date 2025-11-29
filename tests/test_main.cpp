@@ -23,6 +23,7 @@ int test_examplevoice();
 int test_moogladders();
 int test_xline();
 int test_supersaw();
+int test_downsampler();
 
 int main() {
     int failures = 0;
@@ -70,6 +71,9 @@ int main() {
 
     std::cout << "--- SuperSaw Tests ---" << std::endl;
     failures += test_supersaw();
+
+    std::cout << "--- Downsampler Tests ---" << std::endl;
+    failures += test_downsampler();
 
     std::cout << std::endl;
     if (failures == 0) {
