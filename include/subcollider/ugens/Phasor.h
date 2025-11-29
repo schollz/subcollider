@@ -14,6 +14,7 @@
 #define SUBCOLLIDER_UGENS_PHASOR_H
 
 #include "../types.h"
+#include <cmath>
 
 namespace subcollider {
 namespace ugens {
@@ -153,30 +154,36 @@ struct Phasor {
      * @return Current value before advancing
      */
     inline Sample tick() noexcept {
-        Sample out = value;
-
-        // Advance value by rate
-        value += rate;
-
-        // Handle wrap-around
-        if (end > start) {
-            // Forward ramp
-            while (value >= end) {
-                value -= (end - start);
+        // Handle wrap-around BEFORE returning value (end value should never be output)
+        Sample range = end - start;
+        if (range > 0.0f) {
+            // Forward ramp (end > start): value goes from start up to end
+            if (value >= end || value < start) {
+                value = std::fmod(value - start, range);
+                if (value < 0.0f) {
+                    value += range;
+                }
+                value += start;
             }
-            while (value < start) {
-                value += (end - start);
-            }
-        } else if (end < start) {
-            // Backward ramp (start > end)
-            while (value <= end) {
-                value += (start - end);
-            }
-            while (value > start) {
-                value -= (start - end);
+        } else if (range < 0.0f) {
+            // Backward ramp (start > end): value goes from start down to end
+            Sample absRange = -range;
+            if (value <= end || value > start) {
+                // When at or past end, wrap back toward start
+                Sample offset = value - end;
+                offset = std::fmod(offset, absRange);
+                if (offset <= 0.0f) {
+                    offset += absRange;
+                }
+                value = end + offset;
             }
         }
-        // If end == start, value stays constant
+        // If end == start, value stays constant (range == 0)
+
+        Sample out = value;
+
+        // Advance value by rate for next tick
+        value += rate;
 
         return out;
     }
