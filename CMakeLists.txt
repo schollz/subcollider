@@ -45,6 +45,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_audioloop.cpp
         tests/test_examplevoice.cpp
         tests/test_moogladders.cpp
+        tests/test_xline.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     

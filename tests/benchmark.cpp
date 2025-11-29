@@ -16,6 +16,7 @@
 #include <subcollider/ugens/EnvelopeAR.h>
 #include <subcollider/ugens/LFNoise2.h>
 #include <subcollider/ugens/Pan2.h>
+#include <subcollider/ugens/XLine.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -228,6 +229,36 @@ void benchmarkPan2() {
     (void)sinkR;
 }
 
+/**
+ * @brief Benchmark XLine tick().
+ */
+void benchmarkXLine() {
+    XLine line;
+    line.init(48000.0f);
+    line.set(1.0f, 10.0f, 100.0f);  // Long duration to avoid retriggering
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = line.tick();
+    }
+
+    // Benchmark
+    line.reset();
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = line.tick();
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("XLine", ticksPerSec);
+    (void)sink;
+}
+
 int main() {
     std::cout << "=== SubCollider UGen Benchmarks ===" << std::endl;
     std::cout << std::endl;
@@ -238,6 +269,7 @@ int main() {
     benchmarkEnvelopeAR();
     benchmarkLFNoise2();
     benchmarkPan2();
+    benchmarkXLine();
 
     std::cout << std::endl;
 
