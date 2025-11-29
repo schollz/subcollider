@@ -75,8 +75,8 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         Stereo sample = g_supersaw.tick();
 
         // Output to both channels
-        outL[i] = sample.left * 0.3f;  // Reduce volume to prevent clipping
-        outR[i] = sample.right * 0.3f;
+        outL[i] = sample.left * 1.0f;  // Reduce volume to prevent clipping
+        outR[i] = sample.right * 1.0f;
     }
 
     return 0;
