@@ -7,7 +7,7 @@ BUILD_DIR := build
 # CMake configuration flags
 CMAKE_FLAGS := -DSUBCOLLIDER_BUILD_TESTS=ON \
                -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
-               -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=ON
+               -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF
 
 # Default target
 .PHONY: all
@@ -21,6 +21,7 @@ help:
 	@echo ""
 	@echo "Available targets:"
 	@echo "  make test       - Build and run all tests"
+	@echo "  make benchmark  - Build and run UGen benchmarks"
 	@echo "  make jack       - Build JACK audio example"
 	@echo "  make jack-run   - Build and run JACK example with auto-connection"
 	@echo "  make basic      - Build basic example"
@@ -46,6 +47,14 @@ test: $(BUILD_DIR)/Makefile
 	@echo "Running tests..."
 	@echo ""
 	@./$(BUILD_DIR)/subcollider_tests
+
+# Build and run benchmarks
+.PHONY: benchmark
+benchmark: $(BUILD_DIR)/Makefile
+	@echo "Building benchmarks..."
+	@cmake --build $(BUILD_DIR) --target subcollider_benchmark
+	@echo ""
+	@./$(BUILD_DIR)/subcollider_benchmark
 
 # Build JACK example
 .PHONY: jack

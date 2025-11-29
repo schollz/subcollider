@@ -46,6 +46,10 @@ if(SUBCOLLIDER_BUILD_TESTS)
     target_link_libraries(subcollider_tests PRIVATE subcollider)
     
     add_test(NAME subcollider_tests COMMAND subcollider_tests)
+
+    # Benchmark executable
+    add_executable(subcollider_benchmark tests/benchmark.cpp)
+    target_link_libraries(subcollider_benchmark PRIVATE subcollider)
 endif()
 
 # Example applications
