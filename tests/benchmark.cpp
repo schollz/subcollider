@@ -113,7 +113,7 @@ void benchmarkEnvelopeAR() {
         }
     }
 
-    // Benchmark - keep envelope in Attack state for consistent timing
+    // Benchmark - retrigger envelope when idle to keep it active
     env.trigger();
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
