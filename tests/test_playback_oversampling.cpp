@@ -300,13 +300,18 @@ int test_playback_oversampling() {
         Sample expectedMod = std::fmod(expectedPosition, numSamplesFloat);
         Sample actualMod = std::fmod(actualPosition, numSamplesFloat);
         
-        // They should be close (within a few samples due to floating point)
+        // Position tolerance: allows for small floating point accumulation errors
+        // over 12800 ticks (100 blocks * 64 samples * 2x oversample).
+        // With single-precision float, we expect ~1e-6 relative error per operation,
+        // which accumulates to about 0.01 samples over 12800 iterations.
+        // We use 10.0f to be conservative and account for any rounding in fmod.
+        constexpr Sample POSITION_TOLERANCE = 10.0f;
         Sample posDiff = std::abs(expectedMod - actualMod);
         // Handle wrap-around case
         if (posDiff > numSamplesFloat / 2) {
             posDiff = numSamplesFloat - posDiff;
         }
-        TEST("Phasor position is correct (playback speed verification)", posDiff < 10.0f);
+        TEST("Phasor position is correct (playback speed verification)", posDiff < POSITION_TOLERANCE);
 
         // Release buffer
         allocator.release(buf);
