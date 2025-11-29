@@ -12,6 +12,7 @@
 
 #include <subcollider/ugens/SinOsc.h>
 #include <subcollider/ugens/SawDPW.h>
+#include <subcollider/ugens/LFTri.h>
 #include <subcollider/ugens/EnvelopeAR.h>
 #include <subcollider/ugens/LFNoise2.h>
 #include <subcollider/ugens/Pan2.h>
@@ -90,6 +91,35 @@ void benchmarkSawDPW() {
     double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
 
     printResult("SawDPW", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark LFTri tick().
+ */
+void benchmarkLFTri() {
+    LFTri tri;
+    tri.init(48000.0f);
+    tri.setFrequency(440.0f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = tri.tick();
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = tri.tick();
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("LFTri", ticksPerSec);
     (void)sink;
 }
 
@@ -204,6 +234,7 @@ int main() {
 
     benchmarkSinOsc();
     benchmarkSawDPW();
+    benchmarkLFTri();
     benchmarkEnvelopeAR();
     benchmarkLFNoise2();
     benchmarkPan2();
