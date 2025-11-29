@@ -4,6 +4,21 @@
 
 A lightweight, embedded-friendly C++ DSP engine for audio synthesis.
 
+## Quick start
+
+Run tests:
+
+```bash 
+make run-tests
+```
+
+Run JACK example (requires JACK server running):
+
+```bash
+make jack-run
+```
+
+
 ## Features
 
 - **Header-only library** - Easy integration, no linking required
@@ -17,101 +32,11 @@ A lightweight, embedded-friendly C++ DSP engine for audio synthesis.
 
 The following unit generators (UGens) are included:
 
-### SinOsc
-Sine wave oscillator using phase accumulator.
+- `SinOsc` - Sine wave oscillator
+- `EnvelopeAR` - Attack-release envelope generator
+- `LFNoise2` - Interpolated low-frequency noise generator
+- `Pan2` - Stereo panner
 
-```cpp
-#include <subcollider/ugens/SinOsc.h>
-
-subcollider::ugens::SinOsc osc;
-osc.init(48000.0f);         // Initialize at 48kHz sample rate
-osc.setFrequency(440.0f);   // Set frequency to 440 Hz
-
-// Per-sample processing
-float sample = osc.tick();
-
-// Block processing
-float buffer[64];
-osc.process(buffer, 64);
-```
-
-### EnvelopeAR
-Attack-release envelope generator with exponential curves.
-
-```cpp
-#include <subcollider/ugens/EnvelopeAR.h>
-
-subcollider::ugens::EnvelopeAR env;
-env.init(48000.0f);
-env.setAttack(0.01f);   // 10ms attack
-env.setRelease(0.5f);   // 500ms release
-
-env.trigger();          // Start envelope
-
-// Per-sample processing
-float amplitude = env.tick();
-
-// Apply to audio
-audioSample *= amplitude;
-```
-
-### LFNoise2
-Quadratically interpolated low-frequency noise generator.
-
-```cpp
-#include <subcollider/ugens/LFNoise2.h>
-
-subcollider::ugens::LFNoise2 noise;
-noise.init(48000.0f);
-noise.setFrequency(4.0f);   // 4 Hz rate of change
-
-// Get modulation value
-float mod = noise.tick();   // Returns value in [-1, 1]
-```
-
-## Example Voice
-
-The `ExampleVoice` demonstrates combining multiple UGens:
-
-```cpp
-#include <subcollider/ExampleVoice.h>
-
-subcollider::ExampleVoice voice;
-voice.init(48000.0f);
-voice.setFrequency(440.0f);
-voice.setAttack(0.01f);
-voice.setRelease(0.3f);
-voice.setVibratoDepth(0.1f);
-voice.setVibratoRate(5.0f);
-voice.setAmplitude(0.5f);
-
-voice.trigger();    // Note on
-
-float buffer[64];
-voice.process(buffer, 64);
-
-voice.release();    // Note off
-```
-
-## Audio Loop
-
-ISR-safe audio processing loop with double buffering:
-
-```cpp
-#include <subcollider/AudioLoop.h>
-
-subcollider::AudioLoop<64> loop;
-loop.init(48000.0f);
-
-// In audio interrupt/callback:
-float* processingBuffer = loop.getProcessingBuffer();
-loop.clearProcessingBuffer();
-myVoice.process(processingBuffer, 64);
-loop.swapBuffers();
-
-// For output (e.g., DMA):
-const float* outputBuffer = loop.getOutputBuffer();
-```
 
 ## Building
 
@@ -155,11 +80,11 @@ cmake --build build
 
 ## CMake Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `SUBCOLLIDER_BUILD_TESTS` | ON | Build unit tests |
-| `SUBCOLLIDER_BUILD_EXAMPLES` | ON | Build example applications |
-| `SUBCOLLIDER_BUILD_JACK_EXAMPLE` | OFF | Build JACK audio example |
+| Option                           | Default | Description                |
+| -------------------------------- | ------- | -------------------------- |
+| `SUBCOLLIDER_BUILD_TESTS`        | ON      | Build unit tests           |
+| `SUBCOLLIDER_BUILD_EXAMPLES`     | ON      | Build example applications |
+| `SUBCOLLIDER_BUILD_JACK_EXAMPLE` | OFF     | Build JACK audio example   |
 
 ## Integration
 
@@ -176,30 +101,6 @@ target_include_directories(myproject PRIVATE path/to/subcollider/include)
 ```cmake
 add_subdirectory(subcollider)
 target_link_libraries(myproject PRIVATE subcollider)
-```
-
-## Project Structure
-
-```
-subcollider/
-├── include/
-│   ├── subcollider.h              # Main include header
-│   └── subcollider/
-│       ├── types.h                # Core types and utilities
-│       ├── AudioBuffer.h          # Fixed-size audio buffer
-│       ├── AudioLoop.h            # ISR-safe audio loop
-│       ├── ExampleVoice.h         # Example synthesizer voice
-│       └── ugens/
-│           ├── SinOsc.h           # Sine oscillator
-│           ├── EnvelopeAR.h       # Attack-release envelope
-│           └── LFNoise2.h         # Interpolated noise
-├── examples/
-│   ├── basic_example.cpp          # Basic usage example
-│   └── jack_example.cpp           # JACK audio example
-├── tests/
-│   └── *.cpp                      # Unit tests
-├── CMakeLists.txt
-└── README.md
 ```
 
 ## Design Principles
