@@ -62,6 +62,9 @@ struct ImprovedMoogLadder {
     /// Resonance [0, 1]
     Sample resonance;
 
+    /// Makeup gain to compensate for level loss at low cutoff
+    double makeupGain;
+
     /**
      * @brief Initialize the filter.
      * @param sr Sample rate in Hz (default: 48000)
@@ -75,6 +78,7 @@ struct ImprovedMoogLadder {
         drive = 1.0;
         x = 0.0;
         g = 0.0;
+        makeupGain = 1.0;
 
         setCutoff(1000.0f);
         setResonance(0.1f);
@@ -92,6 +96,14 @@ struct ImprovedMoogLadder {
 
         x = (PI * cutoff) / sampleRate;
         g = 4.0 * PI * VT * cutoff * (1.0 - x) / (1.0 + x);
+
+        // Gentle compensation so output loudness stays more consistent at low cutoff
+        double nyquist = sampleRate * 0.5;
+        double norm = nyquist > 0.0 ? static_cast<double>(cutoff) / nyquist : 0.0;
+        norm = norm < 0.0 ? 0.0 : (norm > 1.0 ? 1.0 : norm);
+        // Reciprocal curve with floor to avoid extreme boosts
+        makeupGain = 1.0 / (0.2 + norm);
+        if (makeupGain > 8.0) makeupGain = 8.0;
     }
 
     /**
@@ -139,7 +151,7 @@ struct ImprovedMoogLadder {
         dV[3] = dV3;
         tV[3] = std::tanh(V[3] / (2.0 * VT));
 
-        return static_cast<Sample>(V[3]);
+        return static_cast<Sample>(V[3] * makeupGain);
     }
 
     /**
