@@ -85,7 +85,11 @@ struct ImprovedMoogLadder {
      * @param c Cutoff frequency in Hz
      */
     void setCutoff(Sample c) noexcept {
-        cutoff = c;
+        // Limit cutoff to avoid instability when the bilinear transform mapping
+        // approaches the Nyquist frequency (x >= 1 makes g negative and blows up)
+        Sample maxCutoff = (sampleRate / PI) * 0.99f;
+        cutoff = clamp(c, 0.0f, maxCutoff);
+
         x = (PI * cutoff) / sampleRate;
         g = 4.0 * PI * VT * cutoff * (1.0 - x) / (1.0 + x);
     }
