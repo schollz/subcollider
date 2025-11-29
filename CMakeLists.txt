@@ -49,6 +49,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_examplevoice.cpp
         tests/test_moogladders.cpp
         tests/test_xline.cpp
+        tests/test_phasor.cpp
         tests/test_supersaw.cpp
         tests/test_downsampler.cpp
     )

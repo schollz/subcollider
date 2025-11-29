@@ -42,6 +42,7 @@ The following unit generators (UGens) are included:
 - `Balance2` - Stereo balance control
 - `Lag` - Exponential lag filter for smoothing control signals
 - `XLine` - Exponential line generator
+- `Phasor` - Linear ramp with trigger reset and wrap-around
 - `Downsampler` - Downsampler with anti-aliasing filter for oversampling workflows
 - `StereoDownsampler` - Stereo version of Downsampler
 

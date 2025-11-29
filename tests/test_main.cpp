@@ -22,6 +22,7 @@ int test_audioloop();
 int test_examplevoice();
 int test_moogladders();
 int test_xline();
+int test_phasor();
 int test_supersaw();
 int test_downsampler();
 
@@ -68,6 +69,9 @@ int main() {
 
     std::cout << "--- XLine Tests ---" << std::endl;
     failures += test_xline();
+
+    std::cout << "--- Phasor Tests ---" << std::endl;
+    failures += test_phasor();
 
     std::cout << "--- SuperSaw Tests ---" << std::endl;
     failures += test_supersaw();

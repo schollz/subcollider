@@ -18,6 +18,7 @@
 #include <subcollider/ugens/LFNoise2.h>
 #include <subcollider/ugens/Pan2.h>
 #include <subcollider/ugens/XLine.h>
+#include <subcollider/ugens/Phasor.h>
 #include <subcollider/ugens/SuperSaw.h>
 
 using namespace subcollider;
@@ -359,6 +360,36 @@ void benchmarkXLine() {
     (void)sink;
 }
 
+/**
+ * @brief Benchmark Phasor tick().
+ */
+void benchmarkPhasor() {
+    Phasor phasor;
+    phasor.init(48000.0f);
+    phasor.set(1.0f, 0.0f, 1000000.0f);  // Large end to avoid wrapping during benchmark
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = phasor.tick();
+    }
+
+    // Benchmark
+    phasor.reset();
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = phasor.tick();
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("Phasor", ticksPerSec);
+    (void)sink;
+}
+
 int main() {
     std::cout << "=== SubCollider UGen Benchmarks ===" << std::endl;
     std::cout << std::endl;
@@ -372,6 +403,7 @@ int main() {
     benchmarkLFNoise2();
     benchmarkPan2();
     benchmarkXLine();
+    benchmarkPhasor();
 
     std::cout << std::endl;
 
