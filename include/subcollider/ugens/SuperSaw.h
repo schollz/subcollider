@@ -123,6 +123,7 @@ struct SuperSaw {
         filter.init(sr);
         filter.setCutoff(cutoff);
         filter.setResonance(0.1f);
+        filter.setDrive(drive);
 
         // Initialize filter line
         filterLine.init(sr);
@@ -178,6 +179,7 @@ struct SuperSaw {
      */
     void setDrive(Sample d) noexcept {
         drive = d;
+        filter.setDrive(d);
     }
 
     /**
@@ -340,15 +342,11 @@ struct SuperSaw {
         mix.left *= norm;
         mix.right *= norm;
 
-        // Apply drive
-        mix.left *= drive;
-        mix.right *= drive;
-
         // Filter stereo signal
         Sample filtered = filter.tick(mix.left + mix.right) / 2.0f;
 
-        // Compensate drive and apply envelope
-        filtered = (filtered / drive) * env;
+        // Apply envelope after filtering
+        filtered *= env;
 
         // Return mono filtered signal in both channels
         // (or could keep stereo - adjust as needed)

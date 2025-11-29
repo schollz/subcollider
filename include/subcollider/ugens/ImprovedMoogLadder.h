@@ -103,6 +103,14 @@ struct ImprovedMoogLadder {
     }
 
     /**
+     * @brief Set the input drive/saturation amount.
+     * @param d Drive multiplier (1.0 = no drive)
+     */
+    void setDrive(Sample d) noexcept {
+        drive = d < 0.0 ? 0.0 : static_cast<double>(d);
+    }
+
+    /**
      * @brief Generate single filtered sample.
      * @param input Input sample
      * @return Filtered sample

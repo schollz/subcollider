@@ -4,7 +4,7 @@
  *
  * This example demonstrates the SuperSaw composite UGen with 7 detuned
  * saw oscillators, vibrato, stereo spreading, and filtering.
- * Mouse X controls cutoff frequency, Mouse Y controls resonance.
+ * Mouse X controls cutoff frequency, Mouse Y controls drive.
  *
  * The UGens are initialized at 2x the JACK sample rate (e.g., 96kHz when
  * JACK runs at 48kHz) for improved audio quality, particularly reducing
@@ -16,7 +16,7 @@
  * Usage:
  *   ./example_supersaw
  *
- * Move mouse to control filter (X = cutoff, Y = resonance)
+ * Move mouse to control filter (X = cutoff, Y = drive)
  * Press Ctrl+C to quit
  */
 
@@ -37,19 +37,25 @@ static constexpr size_t OVERSAMPLE_FACTOR = 2;
 // Global state for JACK callback
 static SuperSaw g_supersaw;
 static Lag g_cutoffLag;
-static Lag g_resonanceLag;
+static Lag g_driveLag;
 static StereoDownsampler g_downsampler;
 static jack_port_t* g_outputPortL = nullptr;
 static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static std::atomic<float> g_cutoff{5000.0f};
-static std::atomic<float> g_resonance{0.3f};
+static std::atomic<float> g_drive{0.0f};  // normalized 0..1
+static constexpr float RESONANCE = 0.5f;
 
 // Mouse control parameters
 static constexpr float MIN_CUTOFF = 100.0f;
 static constexpr float MAX_CUTOFF = 12000.0f;
-static constexpr float MIN_RESONANCE = 0.0f;
-static constexpr float MAX_RESONANCE = 0.99f;
+static constexpr float MIN_DRIVE_GAIN = 0.01f;   // actual drive multiplier
+static constexpr float MAX_DRIVE_GAIN = 100.0f;  // actual drive multiplier
+
+static float driveFromNormalized(float normalized) {
+    float norm = std::max(0.0f, std::min(1.0f, normalized));
+    return MIN_DRIVE_GAIN * std::pow(MAX_DRIVE_GAIN / MIN_DRIVE_GAIN, norm);
+}
 
 /**
  * @brief JACK process callback - ISR-safe audio processing.
@@ -71,19 +77,21 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
 
     // Generate and filter audio with 2x oversampling
     for (jack_nframes_t i = 0; i < nframes; ++i) {
-        // Smooth the cutoff and resonance values using Lag (at oversampled rate)
+        // Smooth the cutoff and drive values using Lag (at oversampled rate)
         // Read parameters at output rate to reduce atomic operations
         Sample targetCutoff = g_cutoff.load(std::memory_order_relaxed);
-        Sample targetResonance = g_resonance.load(std::memory_order_relaxed);
+        Sample targetDrive = g_drive.load(std::memory_order_relaxed);
 
         // Generate OVERSAMPLE_FACTOR samples at the higher rate
         for (size_t j = 0; j < OVERSAMPLE_FACTOR; ++j) {
             Sample smoothCutoff = g_cutoffLag.tick(targetCutoff);
-            Sample smoothResonance = g_resonanceLag.tick(targetResonance);
+            Sample smoothDrive = g_driveLag.tick(targetDrive);
+            Sample driveGain = driveFromNormalized(smoothDrive);
 
             // Update SuperSaw parameters with smoothed values
             g_supersaw.setCutoff(smoothCutoff);
-            g_supersaw.filter.setResonance(smoothResonance);
+            g_supersaw.filter.setResonance(RESONANCE);
+            g_supersaw.setDrive(driveGain);
 
             // Generate SuperSaw output at oversampled rate
             Stereo sample = g_supersaw.tick();
@@ -121,7 +129,7 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
 
     // Initialize Lag filters at the oversampled rate (they run in the inner loop)
     g_cutoffLag.init(internalRate, 0.2f);
-    g_resonanceLag.init(internalRate, 0.2f);
+    g_driveLag.init(internalRate, 0.2f);
 
     // Initialize downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
@@ -131,9 +139,10 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     g_supersaw.setDetune(0.2f);
     g_supersaw.setVibratoRate(6.0f);
     g_supersaw.setVibratoDepth(0.3f);
-    g_supersaw.setDrive(1.5f);
+    g_supersaw.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
     g_supersaw.setSpread(0.6f);
     g_supersaw.setCutoff(5000.0f);
+    g_supersaw.filter.setResonance(RESONANCE);
     g_supersaw.setLpEnv(0.0f);
     g_supersaw.setLpAttack(0.0f);
     g_supersaw.setAttack(0.01f);
@@ -215,9 +224,10 @@ int main() {
     g_supersaw.setDetune(0.2f);           // 0.2 semitones detune
     g_supersaw.setVibratoRate(6.0f);      // 6 Hz vibrato
     g_supersaw.setVibratoDepth(0.3f);     // 0.3 semitones vibrato depth
-    g_supersaw.setDrive(1.5f);            // 1.5x drive
+    g_supersaw.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed))); // Drive from normalized control
     g_supersaw.setSpread(0.6f);           // 60% stereo spread
     g_supersaw.setCutoff(5000.0f);        // 5kHz initial cutoff
+    g_supersaw.filter.setResonance(RESONANCE); // Fixed resonance
     g_supersaw.setLpEnv(0.0f);            // No envelope modulation
     g_supersaw.setLpAttack(0.0f);         // No attack
 
@@ -232,10 +242,10 @@ int main() {
 
     // Initialize Lag filters at the oversampled rate for smooth parameter changes
     g_cutoffLag.init(internalRate, 0.2f);
-    g_resonanceLag.init(internalRate, 0.2f);
+    g_driveLag.init(internalRate, 0.2f);
     // Set initial values to prevent initial transient
     g_cutoffLag.setValue(5000.0f);
-    g_resonanceLag.setValue(0.3f);
+    g_driveLag.setValue(g_drive.load(std::memory_order_relaxed));
 
     // Initialize the stereo downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
@@ -275,7 +285,7 @@ int main() {
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Move mouse horizontally (X) to control cutoff frequency" << std::endl;
-    std::cout << "  Move mouse vertically (Y) to control resonance" << std::endl;
+    std::cout << "  Move mouse vertically (Y) to control drive" << std::endl;
     std::cout << "  Press Ctrl+C to quit" << std::endl;
     std::cout << std::endl;
 
@@ -298,15 +308,16 @@ int main() {
             float cutoff = std::exp(logMin + normalizedX * (logMax - logMin));
             g_cutoff.store(cutoff, std::memory_order_relaxed);
 
-            // Map mouse Y to resonance (linear, inverted so top = high resonance)
+            // Map mouse Y to drive (normalized 0..1, inverted so top = more drive)
             float normalizedY = 1.0f - (static_cast<float>(rootY) / static_cast<float>(screenHeight));
             normalizedY = std::max(0.0f, std::min(1.0f, normalizedY));
-            float resonance = MIN_RESONANCE + normalizedY * (MAX_RESONANCE - MIN_RESONANCE);
-            g_resonance.store(resonance, std::memory_order_relaxed);
+            float drive = normalizedY;
+            g_drive.store(drive, std::memory_order_relaxed);
+            float driveGain = driveFromNormalized(drive);
 
             // Print current values
             std::cout << "\rCutoff: " << static_cast<int>(cutoff) << " Hz   "
-                     << "Resonance: " << resonance << "   " << std::flush;
+                     << "Drive: " << driveGain << "   " << std::flush;
         }
 
         // Sleep to avoid polling too fast
