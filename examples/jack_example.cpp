@@ -22,7 +22,8 @@ using namespace subcollider;
 
 // Global state for JACK callback
 static ExampleVoice g_voice;
-static jack_port_t* g_outputPort = nullptr;
+static jack_port_t* g_outputPortL = nullptr;
+static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static std::atomic<bool> g_noteOn{false};
 static std::atomic<float> g_frequency{440.0f};
@@ -34,10 +35,13 @@ static std::atomic<float> g_frequency{440.0f};
  * No heap allocation, no blocking, no virtual calls.
  */
 int jackProcessCallback(jack_nframes_t nframes, void*) {
-    // Get output buffer from JACK
-    jack_default_audio_sample_t* out =
+    // Get output buffers from JACK (stereo)
+    jack_default_audio_sample_t* outL =
         static_cast<jack_default_audio_sample_t*>(
-            jack_port_get_buffer(g_outputPort, nframes));
+            jack_port_get_buffer(g_outputPortL, nframes));
+    jack_default_audio_sample_t* outR =
+        static_cast<jack_default_audio_sample_t*>(
+            jack_port_get_buffer(g_outputPortR, nframes));
 
     // Update frequency at control rate (once per block)
     g_voice.setFrequency(g_frequency.load(std::memory_order_relaxed));
@@ -54,8 +58,11 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         lastNoteOn = currentNoteOn;
     }
 
-    // Process audio block
-    g_voice.process(out, nframes);
+    // Process audio block to left channel
+    g_voice.process(outL, nframes);
+
+    // Copy to right channel for stereo output
+    std::memcpy(outR, outL, nframes * sizeof(jack_default_audio_sample_t));
 
     return 0;
 }
@@ -124,13 +131,16 @@ int main() {
     jack_set_sample_rate_callback(client, jackSampleRateCallback, nullptr);
     jack_on_shutdown(client, jackShutdownCallback, nullptr);
 
-    // Create output port
-    g_outputPort = jack_port_register(client, "output",
-                                       JACK_DEFAULT_AUDIO_TYPE,
-                                       JackPortIsOutput, 0);
+    // Create stereo output ports
+    g_outputPortL = jack_port_register(client, "output_L",
+                                        JACK_DEFAULT_AUDIO_TYPE,
+                                        JackPortIsOutput, 0);
+    g_outputPortR = jack_port_register(client, "output_R",
+                                        JACK_DEFAULT_AUDIO_TYPE,
+                                        JackPortIsOutput, 0);
 
-    if (g_outputPort == nullptr) {
-        std::cerr << "Failed to create JACK output port" << std::endl;
+    if (g_outputPortL == nullptr || g_outputPortR == nullptr) {
+        std::cerr << "Failed to create JACK output ports" << std::endl;
         jack_client_close(client);
         return 1;
     }
