@@ -219,10 +219,12 @@ int test_playback_oversampling() {
         phasor.init(INTERNAL_SAMPLE_RATE);
 
         // Calculate playback rate (matching jack_playback_example.cpp)
+        // The Phasor rate is how many samples (in the file) to advance per tick.
+        // rate = fileSampleRate / processingRate
         Sample playbackRate = static_cast<Sample>(fileSampleRate) / INTERNAL_SAMPLE_RATE;
         Sample numSamplesFloat = static_cast<Sample>(buf.numSamples);
 
-        phasor.set(playbackRate * numSamplesFloat, 0.0f, numSamplesFloat, 0.0f);
+        phasor.set(playbackRate, 0.0f, numSamplesFloat, 0.0f);
 
         // Initialize BufRd
         BufRd bufRd;
@@ -330,7 +332,7 @@ int test_playback_oversampling() {
             Phasor phasor;
             phasor.init(INTERNAL_SAMPLE_RATE);
             Sample playbackRate = static_cast<Sample>(fileSampleRate) / INTERNAL_SAMPLE_RATE;
-            phasor.set(playbackRate * static_cast<Sample>(buf.numSamples), 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
+            phasor.set(playbackRate, 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
 
             BufRd bufRd;
             bufRd.init(&buf);
@@ -367,7 +369,7 @@ int test_playback_oversampling() {
             Phasor phasor;
             phasor.init(INTERNAL_SAMPLE_RATE);
             Sample playbackRate = static_cast<Sample>(fileSampleRate) / INTERNAL_SAMPLE_RATE;
-            phasor.set(playbackRate * static_cast<Sample>(buf.numSamples), 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
+            phasor.set(playbackRate, 0.0f, static_cast<Sample>(buf.numSamples), 0.0f);
 
             BufRd bufRd;
             bufRd.init(&buf);
