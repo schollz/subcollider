@@ -36,16 +36,19 @@ using namespace subcollider;
 using namespace subcollider::ugens;
 
 // Global state for JACK callback
+static constexpr size_t OVERSAMPLE_FACTOR = 2;
 static BufferAllocator<> g_allocator;
 static Buffer g_audioBuffer;
 static Phasor g_phasor;
 static BufRd g_bufRd;
 static Lag g_rateLag;
+static StereoDownsampler g_downsampler;
 static jack_port_t* g_outputPortL = nullptr;
 static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static float g_fileSampleRate = 0.0f;
 static float g_sampleRate = 48000.0f;
+static float g_internalSampleRate = 96000.0f;
 static std::atomic<float> g_basePlaybackRate{1.0f};
 static std::atomic<float> g_rateControl{1.0f};
 static constexpr float MIN_RATE = 0.25f;
@@ -54,12 +57,13 @@ static constexpr float CENTER_DEADZONE = 0.02f;  // normalized distance from cen
 
 void configurePlayback(float sampleRate) {
   g_sampleRate = sampleRate;
-  g_phasor.init(g_sampleRate);
-  g_rateLag.init(g_sampleRate, 0.2f);
+  g_internalSampleRate = g_sampleRate * static_cast<float>(OVERSAMPLE_FACTOR);
+  g_phasor.init(g_internalSampleRate);
+  g_rateLag.init(g_internalSampleRate, 0.2f);
+  g_downsampler.init(g_sampleRate, OVERSAMPLE_FACTOR);
 
   if (g_audioBuffer.isValid()) {
-    float basePlaybackRate =
-        g_fileSampleRate / g_sampleRate;  // step in samples per tick
+    float basePlaybackRate = g_fileSampleRate / g_internalSampleRate;
     g_basePlaybackRate.store(basePlaybackRate, std::memory_order_relaxed);
     float numSamplesFloat = static_cast<float>(g_audioBuffer.numSamples);
     float targetRate =
@@ -149,18 +153,21 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
   float targetRate = g_basePlaybackRate.load(std::memory_order_relaxed) *
                      g_rateControl.load(std::memory_order_relaxed);
 
-  // Generate audio at JACK rate using Phasor and BufRd
+  // Generate audio at 2x rate, then downsample to JACK rate
   for (jack_nframes_t i = 0; i < nframes; ++i) {
-    float smoothRate = g_rateLag.tick(targetRate);
-    g_phasor.setRate(smoothRate);
+    Stereo outputSample;
+    for (size_t j = 0; j < OVERSAMPLE_FACTOR; ++j) {
+      float smoothRate = g_rateLag.tick(targetRate);
+      g_phasor.setRate(smoothRate);
 
-    // Get phase from Phasor
-    float phase = g_phasor.tick();
+      float phase = g_phasor.tick();
+      Stereo sample = g_bufRd.tickStereo(phase);
+      g_downsampler.write(sample);
+    }
 
-    // Read from buffer at that phase
-    Stereo sample = g_bufRd.tickStereo(phase);
-    outL[i] = sample.left;
-    outR[i] = sample.right;
+    outputSample = g_downsampler.read();
+    outL[i] = outputSample.left;
+    outR[i] = outputSample.right;
   }
 
   return 0;
@@ -193,6 +200,8 @@ void signalHandler(int) { g_running.store(false); }
 int main(int argc, char* argv[]) {
   std::cout << "SubCollider JACK Playback Example" << std::endl;
   std::cout << "==================================" << std::endl;
+  std::cout << "Using 2x oversampling for higher-quality interpolation"
+            << std::endl;
   std::cout << std::endl;
 
   // Determine audio file path
