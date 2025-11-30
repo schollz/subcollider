@@ -27,6 +27,7 @@ int test_supersaw();
 int test_xfade2();
 int test_wrap();
 int test_dbamp();
+int test_xplay();
 int test_downsampler();
 int test_buffer();
 int test_bufferallocator();
@@ -99,6 +100,9 @@ int main() {
 
     std::cout << "--- DBAmp Tests ---" << std::endl;
     failures += test_dbamp();
+
+    std::cout << "--- XPlay Tests ---" << std::endl;
+    failures += test_xplay();
 
     std::cout << "--- Downsampler Tests ---" << std::endl;
     failures += test_downsampler();

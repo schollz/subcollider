@@ -53,6 +53,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_xfade2.cpp
         tests/test_wrap.cpp
         tests/test_dbamp.cpp
+        tests/test_xplay.cpp
         tests/test_audioloop.cpp
         tests/test_examplevoice.cpp
         tests/test_moogladders.cpp
