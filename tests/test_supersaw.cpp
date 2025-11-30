@@ -167,7 +167,7 @@ int test_supersaw() {
         TEST("SuperSaw reset: not active", !supersaw.isActive());
     }
 
-    // Test stereo output is same (currently outputs mono)
+    // Test stereo output differs when spread is non-zero
     {
         SuperSaw supersaw;
         supersaw.init(48000.0f, 42);
@@ -178,16 +178,16 @@ int test_supersaw() {
         // Skip initial samples
         for (int i = 0; i < 500; ++i) supersaw.tick();
 
-        bool allSame = true;
+        bool hasStereoDifference = false;
         for (int i = 0; i < 1000; ++i) {
             Stereo sample = supersaw.tick();
-            // Currently SuperSaw outputs mono (same in both channels)
+            // With non-zero spread, the panner should produce channel differences
             if (std::abs(sample.left - sample.right) > 0.001f) {
-                allSame = false;
+                hasStereoDifference = true;
                 break;
             }
         }
-        TEST("SuperSaw output: mono (left and right are same)", allSame);
+        TEST("SuperSaw output: stereo (left and right differ with spread)", hasStereoDifference);
     }
 
     // Test output increases during attack
