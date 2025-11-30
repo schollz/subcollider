@@ -21,12 +21,16 @@
 #include <subcollider/BufferAllocator.h>
 #include <subcollider/ugens/BufRd.h>
 #include <subcollider/ugens/Phasor.h>
+#include <X11/Xlib.h>
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
+#include <cmath>
 #include <cstring>
 #include <ctime>
 #include <iostream>
+#include <unistd.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -36,23 +40,33 @@ static BufferAllocator<> g_allocator;
 static Buffer g_audioBuffer;
 static Phasor g_phasor;
 static BufRd g_bufRd;
+static Lag g_rateLag;
 static jack_port_t* g_outputPortL = nullptr;
 static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static float g_fileSampleRate = 0.0f;
 static float g_sampleRate = 48000.0f;
+static std::atomic<float> g_basePlaybackRate{1.0f};
+static std::atomic<float> g_rateControl{1.0f};
+static constexpr float MIN_RATE = 0.25f;
+static constexpr float MAX_RATE = 4.0f;
 
 void configurePlayback(float sampleRate) {
   g_sampleRate = sampleRate;
   g_phasor.init(g_sampleRate);
+  g_rateLag.init(g_sampleRate, 0.2f);
 
   if (g_audioBuffer.isValid()) {
-    float playbackRate =
+    float basePlaybackRate =
         g_fileSampleRate / g_sampleRate;  // step in samples per tick
+    g_basePlaybackRate.store(basePlaybackRate, std::memory_order_relaxed);
     float numSamplesFloat = static_cast<float>(g_audioBuffer.numSamples);
-    g_phasor.set(playbackRate, 0.0f, numSamplesFloat, 0.0f);
+    float targetRate =
+        basePlaybackRate * g_rateControl.load(std::memory_order_relaxed);
+    g_rateLag.setValue(targetRate);
+    g_phasor.set(targetRate, 0.0f, numSamplesFloat, 0.0f);
 
-    std::cout << "Playback rate scaling: " << playbackRate << std::endl;
+    std::cout << "Playback rate scaling: " << targetRate << std::endl;
     std::cout << "Buffer length: " << g_audioBuffer.numSamples << " samples"
               << std::endl;
   }
@@ -131,8 +145,14 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
   jack_default_audio_sample_t* outR = static_cast<jack_default_audio_sample_t*>(
       jack_port_get_buffer(g_outputPortR, nframes));
 
+  float targetRate = g_basePlaybackRate.load(std::memory_order_relaxed) *
+                     g_rateControl.load(std::memory_order_relaxed);
+
   // Generate audio at JACK rate using Phasor and BufRd
   for (jack_nframes_t i = 0; i < nframes; ++i) {
+    float smoothRate = g_rateLag.tick(targetRate);
+    g_phasor.setRate(smoothRate);
+
     // Get phase from Phasor
     float phase = g_phasor.tick();
 
@@ -184,6 +204,16 @@ int main(int argc, char* argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
 
+  // Initialize X11 for mouse tracking
+  Display* display = XOpenDisplay(nullptr);
+  if (!display) {
+    std::cerr << "Failed to open X11 display" << std::endl;
+    return 1;
+  }
+
+  Window root = DefaultRootWindow(display);
+  int screenWidth = DisplayWidth(display, DefaultScreen(display));
+
   // Open JACK client
   jack_status_t status;
   jack_client_t* client =
@@ -195,6 +225,7 @@ int main(int argc, char* argv[]) {
     if (status & JackServerFailed) {
       std::cerr << "Unable to connect to JACK server" << std::endl;
     }
+    XCloseDisplay(display);
     return 1;
   }
 
@@ -210,6 +241,7 @@ int main(int argc, char* argv[]) {
   // Load audio file
   if (!loadAudioFile(audioFile)) {
     jack_client_close(client);
+    XCloseDisplay(display);
     return 1;
   }
 
@@ -223,7 +255,7 @@ int main(int argc, char* argv[]) {
   // Initialize BufRd
   g_bufRd.init(&g_audioBuffer);
   g_bufRd.setLoop(true);
-  g_bufRd.setInterpolation(2);  // No interpolation
+  g_bufRd.setInterpolation(4);  // Cubic interpolation for best quality
 
   // Set callbacks
   jack_set_process_callback(client, jackProcessCallback, nullptr);
@@ -239,6 +271,7 @@ int main(int argc, char* argv[]) {
   if (g_outputPortL == nullptr || g_outputPortR == nullptr) {
     std::cerr << "Failed to create JACK output ports" << std::endl;
     jack_client_close(client);
+    XCloseDisplay(display);
     return 1;
   }
 
@@ -246,28 +279,49 @@ int main(int argc, char* argv[]) {
   if (jack_activate(client) != 0) {
     std::cerr << "Failed to activate JACK client" << std::endl;
     jack_client_close(client);
+    XCloseDisplay(display);
     return 1;
   }
 
   std::cout << std::endl << "JACK client activated" << std::endl;
   std::cout << "Playing audio in loop... Press Ctrl+C to quit" << std::endl;
+  std::cout << "Move mouse horizontally to control playback rate (0.25x-4x)"
+            << std::endl;
   std::cout << std::endl;
 
   // Main loop - just wait for Ctrl+C
   while (g_running.load()) {
-    // Sleep to avoid busy-waiting
-    jack_nframes_t sleepTime = 100000;  // 100ms in microseconds
-    jack_time_t sleepNanos = sleepTime * 1000;
-    struct timespec ts;
-    ts.tv_sec = sleepNanos / 1000000000;
-    ts.tv_nsec = sleepNanos % 1000000000;
-    nanosleep(&ts, nullptr);
+    Window returnedRoot, returnedChild;
+    int rootX, rootY, winX, winY;
+    unsigned int mask;
+
+    if (XQueryPointer(display, root, &returnedRoot, &returnedChild, &rootX,
+                     &rootY, &winX, &winY, &mask)) {
+      (void)rootY;
+      (void)winX;
+      (void)winY;
+      (void)mask;
+      float normalizedX =
+          static_cast<float>(rootX) / static_cast<float>(screenWidth);
+      normalizedX = std::max(0.0f, std::min(1.0f, normalizedX));
+
+      // Exponential mapping for musical-feeling rate control
+      float logMin = std::log(MIN_RATE);
+      float logMax = std::log(MAX_RATE);
+      float rate = std::exp(logMin + normalizedX * (logMax - logMin));
+
+      g_rateControl.store(rate, std::memory_order_relaxed);
+      std::cout << "\rPlayback rate: " << rate << "x" << std::flush;
+    }
+
+    usleep(50000);  // 50ms polling
   }
 
   // Cleanup
   std::cout << std::endl << "Shutting down..." << std::endl;
   jack_deactivate(client);
   jack_client_close(client);
+  XCloseDisplay(display);
 
   // Release buffer
   g_allocator.release(g_audioBuffer);

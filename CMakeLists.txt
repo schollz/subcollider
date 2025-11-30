@@ -90,10 +90,11 @@ if(SUBCOLLIDER_BUILD_JACK_PLAYBACK_EXAMPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(JACK REQUIRED jack)
     pkg_check_modules(SNDFILE REQUIRED sndfile)
+    find_package(X11 REQUIRED)
 
     add_executable(example_jack_playback examples/jack_playback_example.cpp)
-    target_link_libraries(example_jack_playback PRIVATE subcollider ${JACK_LIBRARIES} ${SNDFILE_LIBRARIES})
-    target_include_directories(example_jack_playback PRIVATE ${JACK_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS})
+    target_link_libraries(example_jack_playback PRIVATE subcollider ${JACK_LIBRARIES} ${SNDFILE_LIBRARIES} ${X11_LIBRARIES})
+    target_include_directories(example_jack_playback PRIVATE ${JACK_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
     target_compile_options(example_jack_playback PRIVATE ${JACK_CFLAGS_OTHER} ${SNDFILE_CFLAGS_OTHER})
 endif()
 
