@@ -32,6 +32,7 @@ int test_bufrd();
 int test_bufrd_phasor();
 int test_playback_oversampling();
 int test_fverb();
+int test_combc();
 
 int main() {
     int failures = 0;
@@ -106,6 +107,9 @@ int main() {
 
     std::cout << "--- FVerb Tests ---" << std::endl;
     failures += test_fverb();
+
+    std::cout << "--- CombC Tests ---" << std::endl;
+    failures += test_combc();
 
     std::cout << std::endl;
     if (failures == 0) {

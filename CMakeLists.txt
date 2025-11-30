@@ -64,6 +64,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_bufrd_phasor.cpp
         tests/test_playback_oversampling.cpp
         tests/test_fverb.cpp
+        tests/test_combc.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider fverb)
     
