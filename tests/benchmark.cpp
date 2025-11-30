@@ -41,14 +41,15 @@ static constexpr int BENCHMARK_ITERATIONS = 1000000;
  * @param ticksPerSec Measured ticks per second
  */
 void printResult(const std::string& name, double ticksPerSec) {
-    // Convert to ticks per microsecond
-    double ticksPerMicrosec = ticksPerSec / 1e6;
-    // Convert to instances per 1 sample at 44.1 kHz
-    // 1 sample at 44.1 kHz = 1000000/44100 microseconds
-    double instancesPerSample = ticksPerMicrosec * (1000000.0 / 44100.0);
+    // Calculate how many instances can be processed in one block (512 samples at 44.1 kHz)
+    // Time for one block = 512 / 44100 seconds
+    // Number of instances = ticksPerSec * (512 / 44100)
+    static constexpr double BLOCK_SIZE = 512.0;
+    static constexpr double SAMPLE_RATE = 44100.0;
+    double instancesPerBlock = ticksPerSec * (BLOCK_SIZE / SAMPLE_RATE);
     std::cout << std::left << std::setw(14) << name
-              << std::fixed << std::setprecision(2) << instancesPerSample
-              << " instances/sample@44.1kHz" << std::endl;
+              << std::fixed << std::setprecision(2) << instancesPerBlock
+              << " instances/block (512 samples @ 44.1kHz)" << std::endl;
 }
 
 /**
@@ -614,6 +615,38 @@ void benchmarkRKSimulationMoogLadder() {
     (void)sink;
 }
 
+/**
+ * @brief Benchmark RKSimulationMoogLadder tick() with 2x oversampling.
+ */
+void benchmarkRKSimulationMoogLadder2x() {
+    RKSimulationMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setOversampleFactor(2);  // 2x oversampling
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("RKSimulMoog2x", ticksPerSec);
+    (void)sink;
+}
+
 int main() {
     std::cout << "=== SubCollider UGen Benchmarks ===" << std::endl;
     std::cout << std::endl;
@@ -635,6 +668,7 @@ int main() {
     benchmarkOberheimMoogLadder();
     benchmarkImprovedMoogLadder();
     benchmarkRKSimulationMoogLadder();
+    benchmarkRKSimulationMoogLadder2x();
 
     std::cout << std::endl;
 
