@@ -1,6 +1,6 @@
 # SubCollider
 
-[![CI](https://github.com/schollz/subcollider/actions/workflows/CI.yml/badge.svg)](https://github.com/schollz/subcollider/actions/workflows/CI.yml)
+[![CI](https://github.com/schollz/subcollider/actions/workflows/ci.yml/badge.svg)](https://github.com/schollz/subcollider/actions/workflows/ci.yml)
 
 A lightweight, embedded-friendly C++ DSP engine for audio synthesis.
 
@@ -18,12 +18,11 @@ Run benchmarks:
 make benchmark
 ```
 
-Run JACK example (requires JACK server running):
+Build all examples:
 
 ```bash
-make jack-run
+make
 ```
-
 
 ## Features
 
@@ -102,7 +101,7 @@ for (size_t i = 0; i < outputFrames; ++i) {
         Stereo sample = supersaw.tick();
         downsampler.write(sample);
     }
-    
+
     // Read one downsampled output sample
     Stereo output = downsampler.read();
     outputL[i] = output.left;
@@ -111,7 +110,6 @@ for (size_t i = 0; i < outputFrames; ++i) {
 ```
 
 See `examples/supersaw_example.cpp` for a complete working example with JACK audio.
-
 
 ## Building
 
