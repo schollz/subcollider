@@ -1,14 +1,14 @@
 /**
  * @file supersaw_example.cpp
- * @brief Interactive SuperSaw example with mouse control, filter, and reverb.
+ * @brief Interactive SuperSaw example with mouse control, stereo filter, and reverb.
  *
  * This example demonstrates the SuperSaw composite UGen with 7 detuned
- * saw oscillators, vibrato, stereo spreading, a Moog ladder filter, and
+ * saw oscillators, vibrato, stereo spreading, dual Moog ladder filters (L/R), and
  * FVerb stereo reverb (10% wet).
  * Mouse X controls cutoff frequency, Mouse Y controls drive.
  *
  * Signal chain:
- *   SuperSaw -> Moog Filter -> FVerb (10% wet) -> Output
+ *   SuperSaw -> Stereo Moog Filters (L/R) -> FVerb (10% wet) -> Output
  *
  * The UGens are initialized at the JACK sample rate. FVerb processes
  * the filtered audio in blocks for high-quality algorithmic reverberation.
@@ -47,13 +47,20 @@ static std::array<SuperSaw, NUM_VOICES> g_supersaws;
 static Lag g_cutoffLag;
 static Lag g_driveLag;
 static StereoDownsampler g_downsampler;
-static RKSimulationMoogLadder g_filter;
+static RKSimulationMoogLadder g_filterL;
+static RKSimulationMoogLadder g_filterR;
 static FVerb g_reverb;
+
+// DC blocking filter state (simple one-pole highpass)
+static Sample g_dcBlockL_x1 = 0.0f;
+static Sample g_dcBlockL_y1 = 0.0f;
+static Sample g_dcBlockR_x1 = 0.0f;
+static Sample g_dcBlockR_y1 = 0.0f;
 static Sample g_reverbLeftBuffer[MAX_BLOCK_SIZE];
 static Sample g_reverbRightBuffer[MAX_BLOCK_SIZE];
 static jack_client_t* g_client = nullptr;
 static float g_outputRate = 48000.0f;
-static constexpr float REVERB_WET = 0.0f;  // 10% wet
+static constexpr float REVERB_WET = 0.1f;  // 10% wet
 static std::atomic<float> g_cpuUsage{0.0f};
 static float g_cpuRing[100] = {0.0f};
 static size_t g_cpuRingSize = 0;
@@ -64,7 +71,7 @@ static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
 static std::atomic<float> g_cutoff{5000.0f};
 static std::atomic<float> g_drive{0.0f};  // normalized 0..1
-static constexpr float RESONANCE = 0.1f;
+static constexpr float RESONANCE = 0.01f;
 static constexpr std::array<float, NUM_VOICES> VOICE_FREQUENCIES = {55.0f, 329.63f, 523.25f};  // C (requested 55 Hz), E >200 Hz, G >400 Hz
 
 // Mouse control parameters
@@ -117,9 +124,12 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
             Sample smoothCutoff = g_cutoffLag.tick(targetCutoff);
             Sample smoothDrive = g_driveLag.tick(targetDrive);
             Sample driveGain = driveFromNormalized(smoothDrive);
-            g_filter.setCutoff(smoothCutoff);
-            g_filter.setResonance(RESONANCE);
-            g_filter.setDrive(driveGain);
+            g_filterL.setCutoff(smoothCutoff);
+            g_filterL.setResonance(RESONANCE);
+            g_filterL.setDrive(driveGain);
+            g_filterR.setCutoff(smoothCutoff);
+            g_filterR.setResonance(RESONANCE);
+            g_filterR.setDrive(driveGain);
 
             Stereo mix{0.0f, 0.0f};
             for (auto& voice : g_supersaws) {
@@ -131,11 +141,21 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
             mix.left *= invVoices;
             mix.right *= invVoices;  // prevent clipping
 
-            Sample mono = 0.5f * (mix.left + mix.right);
-            Sample filtered = g_filter.tick(mono);
+            Sample filteredL = g_filterL.tick(mix.left);
+            Sample filteredR = g_filterR.tick(mix.right);
+
+            // Apply DC blocking filter (removes DC offset and high-frequency artifacts)
+            // y[n] = x[n] - x[n-1] + R * y[n-1], where R ≈ 0.995
+            constexpr Sample dcBlockCoeff = 0.995f;
+            Sample dcBlockedL = filteredL - g_dcBlockL_x1 + dcBlockCoeff * g_dcBlockL_y1;
+            Sample dcBlockedR = filteredR - g_dcBlockR_x1 + dcBlockCoeff * g_dcBlockR_y1;
+            g_dcBlockL_x1 = filteredL;
+            g_dcBlockL_y1 = dcBlockedL;
+            g_dcBlockR_x1 = filteredR;
+            g_dcBlockR_y1 = dcBlockedR;
 
             // Write to downsampler
-            g_downsampler.write(Stereo(filtered, filtered));
+            g_downsampler.write(Stereo(dcBlockedL, dcBlockedR));
         }
 
         // Read one downsampled output sample (dry signal)
@@ -216,10 +236,21 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
         g_supersaws[i].setRelease(0.3f);
         g_supersaws[i].gate(1.0f);
     }
-    g_filter.init(internalRate);
-    g_filter.setCutoff(5000.0f);
-    g_filter.setResonance(RESONANCE);
-    g_filter.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+    g_filterL.init(internalRate);
+    g_filterL.setCutoff(5000.0f);
+    g_filterL.setResonance(RESONANCE);
+    g_filterL.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+    g_filterR.init(internalRate);
+    g_filterR.setCutoff(5000.0f);
+    g_filterR.setResonance(RESONANCE);
+    g_filterR.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+
+    // Reset DC blocker state
+    g_dcBlockL_x1 = 0.0f;
+    g_dcBlockL_y1 = 0.0f;
+    g_dcBlockR_x1 = 0.0f;
+    g_dcBlockR_y1 = 0.0f;
+
     // Initialize Lag filters at the oversampled rate (they run in the inner loop)
     g_cutoffLag.init(internalRate, 0.2f);
     g_driveLag.init(internalRate, 0.2f);
@@ -316,10 +347,20 @@ int main() {
         g_supersaws[i].setRelease(0.3f);          // 300ms release
         g_supersaws[i].gate(1.0f);
     }
-    g_filter.init(internalRate);
-    g_filter.setCutoff(5000.0f);
-    g_filter.setResonance(RESONANCE);
-    g_filter.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+    g_filterL.init(internalRate);
+    g_filterL.setCutoff(5000.0f);
+    g_filterL.setResonance(RESONANCE);
+    g_filterL.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+    g_filterR.init(internalRate);
+    g_filterR.setCutoff(5000.0f);
+    g_filterR.setResonance(RESONANCE);
+    g_filterR.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+
+    // Reset DC blocker state
+    g_dcBlockL_x1 = 0.0f;
+    g_dcBlockL_y1 = 0.0f;
+    g_dcBlockR_x1 = 0.0f;
+    g_dcBlockR_y1 = 0.0f;
 
     // Initialize Lag filters at the oversampled rate for smooth parameter changes
     g_cutoffLag.init(internalRate, 0.2f);
@@ -371,7 +412,7 @@ int main() {
     std::cout << "JACK client activated" << std::endl;
     std::cout << std::endl;
     std::cout << "Playing SuperSaw C chord (C=55 Hz, E>200 Hz, G>400 Hz) with 7 detuned voices per note" << std::endl;
-    std::cout << "Signal chain: SuperSaw -> Moog Filter -> FVerb (10% wet)" << std::endl;
+    std::cout << "Signal chain: SuperSaw -> Stereo Moog Filters (L/R) -> FVerb (10% wet)" << std::endl;
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Move mouse horizontally (X) to control cutoff frequency" << std::endl;
