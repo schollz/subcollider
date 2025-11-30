@@ -295,7 +295,7 @@ int test_envelopeadsr() {
         env.setDecay(0.001f);
         env.setSustain(0.7f);
         env.setRelease(0.01f);
-        env.setDoneAction(EnvelopeADSR::DoneAction::Free);
+        env.setDoneAction(EnvelopeADSR::DoneAction::ActionFree);
 
         env.gate(1.0f);
         for (int i = 0; i < 1000; ++i) env.tick();

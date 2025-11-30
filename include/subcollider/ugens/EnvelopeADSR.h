@@ -58,9 +58,9 @@ struct EnvelopeADSR {
 
     /// Done actions (similar to SuperCollider)
     enum class DoneAction : uint8_t {
-        None = 0,      // Do nothing when envelope completes
-        Pause = 1,     // Pause (for future use)
-        Free = 2       // Mark as done/free (for voice management)
+        ActionNone = 0,      // Do nothing when envelope completes
+        ActionPause = 1,     // Pause (for future use)
+        ActionFree = 2       // Mark as done/free (for voice management)
     };
 
     /// Current envelope value [0, 1]
@@ -115,7 +115,7 @@ struct EnvelopeADSR {
         releaseTime = 0.3f;    // 300ms default
         state = State::Idle;
         gateValue = 0.0f;
-        doneAction = DoneAction::None;
+        doneAction = DoneAction::ActionNone;
         done = false;
         updateCoefficients();
     }
@@ -284,7 +284,7 @@ struct EnvelopeADSR {
                     state = State::Idle;
                     done = true;
                     // Perform done action
-                    if (doneAction == DoneAction::Free) {
+                    if (doneAction == DoneAction::ActionFree) {
                         // Mark as free for voice management
                         // (application can check isDone())
                     }

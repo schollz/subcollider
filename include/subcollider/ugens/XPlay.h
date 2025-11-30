@@ -22,6 +22,7 @@
 #include "LinLin.h"
 #include "EnvelopeADSR.h"
 #include <algorithm>
+#include <cmath>
 
 namespace subcollider {
 namespace ugens {
@@ -85,7 +86,7 @@ struct XPlay {
         env.setDecay(0.0f);
         env.setSustain(1.0f);
         env.setRelease(fadeTime);
-        env.setDoneAction(EnvelopeADSR::DoneAction::Free);
+        env.setDoneAction(EnvelopeADSR::DoneAction::ActionFree);
         env.gate(gateValue);
         updateLoopBounds();
     }
@@ -102,10 +103,16 @@ struct XPlay {
     /**
      * @brief Set start/end points (normalized 0..1).
      */
-    void setStartEnd(Sample startNorm, Sample endNorm) noexcept {
-        start = clamp(startNorm, 0.0f, 1.0f);
-        end = clamp(endNorm, 0.0f, 1.0f);
-        updateLoopBounds();
+    void setStartEnd(Sample startNorm, Sample endNorm, bool preservePhasor = false) noexcept {
+        Sample clampedStart = clamp(startNorm, 0.0f, 1.0f);
+        Sample clampedEnd = clamp(endNorm, 0.0f, 1.0f);
+        if (std::abs(clampedStart - start) < 1e-9f &&
+            std::abs(clampedEnd - end) < 1e-9f) {
+            return;
+        }
+        start = clampedStart;
+        end = clampedEnd;
+        updateLoopBounds(!preservePhasor);
     }
 
     /**
@@ -216,14 +223,29 @@ struct XPlay {
     }
 
 private:
-    void updateLoopBounds() noexcept {
+    void updateLoopBounds(bool resetPhasor = true) noexcept {
         frames = (buffer && buffer->isValid()) ? static_cast<Sample>(buffer->numSamples) : 0.0f;
         loopStart = std::min(start, end) * frames;
         loopEnd = std::max(start, end) * frames;
         loopSize = std::max(0.0f, loopEnd - loopStart);
         isReverse = start > end;
-        phasor = loopStart;
-        inSecondHalf = false;
+        if (resetPhasor || loopSize <= 0.0f) {
+            phasor = loopStart;
+            inSecondHalf = false;
+            return;
+        }
+
+        Sample loopWindowStart = loopStart;
+        Sample loopWindowEnd = loopStart + (loopSize * 2.0f);
+
+        // Keep phasor inside the new window
+        while (phasor < loopWindowStart) {
+            phasor += (loopSize * 2.0f);
+        }
+        while (phasor >= loopWindowEnd) {
+            phasor -= (loopSize * 2.0f);
+        }
+        inSecondHalf = phasor >= (loopStart + loopSize);
     }
 };
 

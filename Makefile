@@ -7,13 +7,27 @@ BUILD_DIR := build
 # CMake configuration flags
 CMAKE_FLAGS := -DSUBCOLLIDER_BUILD_TESTS=ON \
                -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
-               -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF \
-               -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF \
-               -DSUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE=OFF
+               -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=ON \
+               -DSUBCOLLIDER_BUILD_JACK_PLAYBACK_EXAMPLE=ON \
+               -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=ON \
+               -DSUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE=ON \
+               -DSUBCOLLIDER_BUILD_XPLAY_EXAMPLE=ON
 
 # Default target
 .PHONY: all
-all: test
+all: $(BUILD_DIR)/Makefile
+	@echo "Building tests and all examples..."
+	@cmake --build $(BUILD_DIR) --target \
+		subcollider_tests \
+		example_basic \
+		example_jack \
+		example_jack_playback \
+		example_moog \
+		example_supersaw \
+		example_jack_xplay -j
+	@echo ""
+	@echo "Running tests..."
+	@./$(BUILD_DIR)/subcollider_tests
 
 # Help target
 .PHONY: help
@@ -22,11 +36,13 @@ help:
 	@echo "========================"
 	@echo ""
 	@echo "Available targets:"
+	@echo "  make (default)         - Build all examples and run all tests"
 	@echo "  make test              - Build and run all tests"
 	@echo "  make benchmark         - Build and run UGen benchmarks"
 	@echo "  make jack              - Build JACK audio example"
 	@echo "  make jack-run          - Build and run JACK example with auto-connection"
 	@echo "  make example-playback  - Build and run JACK playback example with auto-connection"
+	@echo "  make example-xplay     - Build and run XPlay JACK example with auto-connection"
 	@echo "  make example-moog      - Build and run Moog filter example with auto-connection"
 	@echo "  make example-supersaw  - Build and run SuperSaw example with auto-connection"
 	@echo "  make basic             - Build basic example"
@@ -144,6 +160,31 @@ example-playback:
 	  echo "[Connected to system:playback_1 and system:playback_2]" \
 	) & \
 	./$(BUILD_DIR)/example_jack_playback
+
+# Build and run JACK XPlay example with auto-connection
+.PHONY: example-xplay
+example-xplay:
+	@echo "Building JACK XPlay example..."
+	@cmake -B $(BUILD_DIR) -DSUBCOLLIDER_BUILD_TESTS=ON \
+	                       -DSUBCOLLIDER_BUILD_EXAMPLES=ON \
+	                       -DSUBCOLLIDER_BUILD_JACK_EXAMPLE=OFF \
+	                       -DSUBCOLLIDER_BUILD_JACK_PLAYBACK_EXAMPLE=OFF \
+	                       -DSUBCOLLIDER_BUILD_XPLAY_EXAMPLE=ON \
+	                       -DSUBCOLLIDER_BUILD_MOOG_EXAMPLE=OFF \
+	                       -DSUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE=OFF
+	@cmake --build $(BUILD_DIR) --target example_jack_xplay -j
+	@echo ""
+	@echo "Starting XPlay example with auto-connection..."
+	@echo "(Make sure JACK server is running)"
+	@echo ""
+	@# Start connection helper in background, then run the program in foreground
+	@(sleep 0.8 && \
+	  echo "[Connecting to system playback...]" && \
+	  jack_connect subcollider_xplay:output_L system:playback_1 2>/dev/null && \
+	  jack_connect subcollider_xplay:output_R system:playback_2 2>/dev/null && \
+	  echo "[Connected to system:playback_1 and system:playback_2]" \
+	) & \
+	./$(BUILD_DIR)/example_jack_xplay
 
 # Build and run Moog filter example with auto-connection
 .PHONY: example-moog

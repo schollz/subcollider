@@ -12,6 +12,7 @@ option(SUBCOLLIDER_BUILD_JACK_EXAMPLE "Build JACK audio example (requires JACK)"
 option(SUBCOLLIDER_BUILD_JACK_PLAYBACK_EXAMPLE "Build JACK playback example (requires JACK and libsndfile)" OFF)
 option(SUBCOLLIDER_BUILD_MOOG_EXAMPLE "Build Moog filter example (requires JACK and X11)" OFF)
 option(SUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE "Build SuperSaw example (requires JACK and X11)" OFF)
+option(SUBCOLLIDER_BUILD_XPLAY_EXAMPLE "Build XPlay example (requires JACK, libsndfile, X11)" OFF)
 
 # FVerb library (has implementation file)
 add_subdirectory(include/subcollider/ugens/fverb)
@@ -111,6 +112,18 @@ if(SUBCOLLIDER_BUILD_JACK_PLAYBACK_EXAMPLE)
     target_link_libraries(example_jack_playback PRIVATE subcollider ${JACK_LIBRARIES} ${SNDFILE_LIBRARIES} ${X11_LIBRARIES})
     target_include_directories(example_jack_playback PRIVATE ${JACK_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
     target_compile_options(example_jack_playback PRIVATE ${JACK_CFLAGS_OTHER} ${SNDFILE_CFLAGS_OTHER})
+endif()
+
+if(SUBCOLLIDER_BUILD_XPLAY_EXAMPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(JACK REQUIRED jack)
+    pkg_check_modules(SNDFILE REQUIRED sndfile)
+    find_package(X11 REQUIRED)
+
+    add_executable(example_jack_xplay examples/jack_xplay.cpp)
+    target_link_libraries(example_jack_xplay PRIVATE subcollider ${JACK_LIBRARIES} ${SNDFILE_LIBRARIES} ${X11_LIBRARIES})
+    target_include_directories(example_jack_xplay PRIVATE ${JACK_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
+    target_compile_options(example_jack_xplay PRIVATE ${JACK_CFLAGS_OTHER} ${SNDFILE_CFLAGS_OTHER})
 endif()
 
 # Moog example (optional, requires JACK and X11)
