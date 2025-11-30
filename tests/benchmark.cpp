@@ -32,6 +32,7 @@
 #include <subcollider/ugens/RKSimulationMoogLadder.h>
 #include <subcollider/ugens/RLPF.h>
 #include <subcollider/ugens/OnePoleLPF.h>
+#include <subcollider/ugens/LinLin.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -494,6 +495,39 @@ void benchmarkLagLinear() {
 }
 
 /**
+ * @brief Benchmark LinLin mapping.
+ */
+void benchmarkLinLin() {
+    static constexpr Sample srcLo = -1.0f;
+    static constexpr Sample srcHi = 1.0f;
+    static constexpr Sample destLo = 0.0f;
+    static constexpr Sample destHi = 5.0f;
+
+    volatile Sample sink = 0.0f;
+
+    // Warmup
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        Sample input = static_cast<Sample>(i % 200 - 100) / 100.0f; // cycle through [-1, 1]
+        sink = LinLin(input, srcLo, srcHi, destLo, destHi);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        Sample input = static_cast<Sample>(i % 200 - 100) / 100.0f;
+        sink = LinLin(input, srcLo, srcHi, destLo, destHi);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("LinLin", ticksPerSec);
+    (void)sink;
+}
+
+/**
  * @brief Benchmark Phasor tick().
  */
 void benchmarkPhasor() {
@@ -910,6 +944,7 @@ int main() {
     benchmarkXFade2();
     benchmarkXLine();
     benchmarkLagLinear();
+    benchmarkLinLin();
     benchmarkPhasor();
     benchmarkCombC();
     benchmarkStilsonMoogLadder();

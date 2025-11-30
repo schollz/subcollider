@@ -69,6 +69,7 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_dcblock.cpp
         tests/test_onepolelpf.cpp
         tests/test_laglinear.cpp
+        tests/test_linlin.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider fverb)
     

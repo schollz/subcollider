@@ -27,6 +27,7 @@
 #include "subcollider/ugens/XFade2.h"
 #include "subcollider/ugens/Lag.h"
 #include "subcollider/ugens/LagLinear.h"
+#include "subcollider/ugens/LinLin.h"
 #include "subcollider/ugens/XLine.h"
 #include "subcollider/ugens/Phasor.h"
 #include "subcollider/ugens/BufRd.h"

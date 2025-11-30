@@ -37,6 +37,7 @@ int test_tape();
 int test_onepolelpf();
 int test_dcblock();
 int test_laglinear();
+int test_linlin();
 
 int main() {
     int failures = 0;
@@ -126,6 +127,9 @@ int main() {
 
     std::cout << "--- LagLinear Tests ---" << std::endl;
     failures += test_laglinear();
+
+    std::cout << "--- LinLin Tests ---" << std::endl;
+    failures += test_linlin();
 
     std::cout << std::endl;
     if (failures == 0) {
