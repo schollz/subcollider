@@ -30,6 +30,9 @@
 #include "subcollider/ugens/BufRd.h"
 #include "subcollider/ugens/Downsampler.h"
 
+// Biquad Filters
+#include "subcollider/ugens/RLPF.h"
+
 // Moog Ladder Filters
 #include "subcollider/ugens/StilsonMoogLadder.h"
 #include "subcollider/ugens/MicrotrackerMoogLadder.h"
