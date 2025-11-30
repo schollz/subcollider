@@ -20,6 +20,13 @@
 #include <subcollider/ugens/XLine.h>
 #include <subcollider/ugens/Phasor.h>
 #include <subcollider/ugens/SuperSaw.h>
+#include <subcollider/ugens/StilsonMoogLadder.h>
+#include <subcollider/ugens/MicrotrackerMoogLadder.h>
+#include <subcollider/ugens/KrajeskiMoogLadder.h>
+#include <subcollider/ugens/MusicDSPMoogLadder.h>
+#include <subcollider/ugens/OberheimMoogLadder.h>
+#include <subcollider/ugens/ImprovedMoogLadder.h>
+#include <subcollider/ugens/RKSimulationMoogLadder.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -390,6 +397,223 @@ void benchmarkPhasor() {
     (void)sink;
 }
 
+/**
+ * @brief Benchmark StilsonMoogLadder tick().
+ */
+void benchmarkStilsonMoogLadder() {
+    StilsonMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("StilsonMoog", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark MicrotrackerMoogLadder tick().
+ */
+void benchmarkMicrotrackerMoogLadder() {
+    MicrotrackerMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("MicrotrkMoog", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark KrajeskiMoogLadder tick().
+ */
+void benchmarkKrajeskiMoogLadder() {
+    KrajeskiMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("KrajeskiMoog", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark MusicDSPMoogLadder tick().
+ */
+void benchmarkMusicDSPMoogLadder() {
+    MusicDSPMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("MusicDSPMoog", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark OberheimMoogLadder tick().
+ */
+void benchmarkOberheimMoogLadder() {
+    OberheimMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("OberheimMoog", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark ImprovedMoogLadder tick().
+ */
+void benchmarkImprovedMoogLadder() {
+    ImprovedMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("ImprovedMoog", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark RKSimulationMoogLadder tick().
+ */
+void benchmarkRKSimulationMoogLadder() {
+    RKSimulationMoogLadder filter;
+    filter.init(48000.0f);
+    filter.setCutoff(1000.0f);
+    filter.setResonance(0.4f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("RKSimulMoog", ticksPerSec);
+    (void)sink;
+}
+
 int main() {
     std::cout << "=== SubCollider UGen Benchmarks ===" << std::endl;
     std::cout << std::endl;
@@ -404,6 +628,13 @@ int main() {
     benchmarkPan2();
     benchmarkXLine();
     benchmarkPhasor();
+    benchmarkStilsonMoogLadder();
+    benchmarkMicrotrackerMoogLadder();
+    benchmarkKrajeskiMoogLadder();
+    benchmarkMusicDSPMoogLadder();
+    benchmarkOberheimMoogLadder();
+    benchmarkImprovedMoogLadder();
+    benchmarkRKSimulationMoogLadder();
 
     std::cout << std::endl;
 

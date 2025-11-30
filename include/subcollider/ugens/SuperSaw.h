@@ -1,9 +1,9 @@
 /**
  * @file SuperSaw.h
- * @brief SuperSaw synthesizer UGen - unison saw oscillators with vibrato and filtering.
+ * @brief SuperSaw synthesizer UGen - unison saw oscillators with vibrato.
  *
  * SuperSaw is a composite UGen that combines multiple detuned saw oscillators
- * with vibrato, stereo spreading, drive, and lowpass filtering for a rich,
+ * with vibrato, stereo spreading, drive, and an amplitude envelope for a rich,
  * powerful sound reminiscent of classic supersaw patches.
  */
 
@@ -15,8 +15,6 @@
 #include "LFTri.h"
 #include "Pan2.h"
 #include "EnvelopeADSR.h"
-#include "RKSimulationMoogLadder.h"
-#include "XLine.h"
 #include <cmath>
 #include <random>
 
@@ -30,7 +28,6 @@ namespace ugens {
  * - 7 saw oscillators with individual detuning and vibrato
  * - Stereo spreading via panning
  * - Drive/saturation
- * - Lowpass filtering with envelope modulation
  * - ADSR amplitude envelope
  *
  * Usage:
@@ -67,20 +64,13 @@ struct SuperSaw {
 
     // Shared components
     EnvelopeADSR envelope;
-    RKSimulationMoogLadder filter;
-    XLine filterLine;
 
     // Parameters
     Sample frequency;
     Sample vibrRate;
     Sample vibrDepth;
-    Sample drive;
     Sample detune;
     Sample spread;
-    Sample lpenv;          // Lowpass envelope amount (octaves)
-    Sample lpa;            // Lowpass attack time
-    Sample cutoff;
-    Sample duration;       // Duration for XLine
 
     Sample sampleRate;
 
@@ -104,30 +94,14 @@ struct SuperSaw {
         frequency = 400.0f;
         vibrRate = 6.0f;
         vibrDepth = 0.3f;
-        drive = 1.5f;
         detune = 0.2f;
         spread = 0.6f;
-        lpenv = 0.0f;
-        lpa = 0.0f;
-        cutoff = 20000.0f;
-        duration = 1.0f;
-
         // Initialize envelope
         envelope.init(sr);
         envelope.setAttack(0.01f);
         envelope.setDecay(0.1f);
         envelope.setSustain(0.7f);
         envelope.setRelease(0.3f);
-
-        // Initialize filter
-        filter.init(sr);
-        filter.setCutoff(cutoff);
-        filter.setResonance(0.1f);
-        filter.setDrive(drive);
-
-        // Initialize filter line
-        filterLine.init(sr);
-        filterLine.set(cutoff, cutoff, 1.0f);
 
         // Initialize voices
         for (int i = 0; i < NUM_VOICES; ++i) {
@@ -174,15 +148,6 @@ struct SuperSaw {
     }
 
     /**
-     * @brief Set drive amount.
-     * @param d Drive amount (1.0 = no drive)
-     */
-    void setDrive(Sample d) noexcept {
-        drive = d;
-        filter.setDrive(d);
-    }
-
-    /**
      * @brief Set detune amount.
      * @param det Detune amount in semitones
      */
@@ -200,38 +165,6 @@ struct SuperSaw {
      */
     void setSpread(Sample s) noexcept {
         spread = clamp(s, 0.0f, 1.0f);
-    }
-
-    /**
-     * @brief Set lowpass envelope amount.
-     * @param lpe Envelope amount in octaves
-     */
-    void setLpEnv(Sample lpe) noexcept {
-        lpenv = lpe;
-    }
-
-    /**
-     * @brief Set lowpass attack time.
-     * @param lpaTime Attack time in seconds
-     */
-    void setLpAttack(Sample lpaTime) noexcept {
-        lpa = lpaTime;
-    }
-
-    /**
-     * @brief Set filter cutoff frequency.
-     * @param c Cutoff frequency in Hz
-     */
-    void setCutoff(Sample c) noexcept {
-        cutoff = c;
-    }
-
-    /**
-     * @brief Set duration for XLine.
-     * @param dur Duration in seconds
-     */
-    void setDuration(Sample dur) noexcept {
-        duration = dur;
     }
 
     /**
@@ -271,24 +204,7 @@ struct SuperSaw {
      * @param g Gate value (>0 = on, 0 = off)
      */
     void gate(Sample g) noexcept {
-        // Check if we need to trigger the filter line (gate going high)
-        bool wasActive = envelope.isActive();
-
         envelope.gate(g);
-
-        // Trigger filter line when gate goes high (transition from off to on)
-        if (g > 0.0f && !wasActive) {
-            // Calculate target cutoff with envelope
-            Sample targetCutoff = cutoff * std::pow(2.0f, lpenv);
-            targetCutoff = clamp(targetCutoff, cutoff, 18000.0f);
-
-            // Set up XLine for filter modulation
-            if (lpa > 0.0f) {
-                filterLine.set(cutoff, targetCutoff, duration * lpa);
-            } else {
-                filterLine.set(cutoff, cutoff, 0.001f);
-            }
-        }
     }
 
     /**
@@ -306,9 +222,6 @@ struct SuperSaw {
     inline Stereo tick() noexcept {
         // Get envelope value
         Sample env = envelope.tick();
-
-        // Use cutoff parameter directly for real-time control
-        filter.setCutoff(cutoff);
 
         // Mix all voices
         Stereo mix(0.0f, 0.0f);
@@ -342,15 +255,11 @@ struct SuperSaw {
         mix.left *= norm;
         mix.right *= norm;
 
-        // Filter stereo signal
-        Sample filtered = filter.tick(mix.left + mix.right) / 2.0f;
+        // Apply envelope
+        mix.left *= env;
+        mix.right *= env;
 
-        // Apply envelope after filtering
-        filtered *= env;
-
-        // Return mono filtered signal in both channels
-        // (or could keep stereo - adjust as needed)
-        return Stereo(filtered, filtered);
+        return mix;
     }
 
     /**

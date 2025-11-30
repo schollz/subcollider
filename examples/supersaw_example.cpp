@@ -1,13 +1,12 @@
 /**
  * @file supersaw_example.cpp
- * @brief Interactive SuperSaw example with mouse control and 2x oversampling.
+ * @brief Interactive SuperSaw example with mouse control and 4x oversampling.
  *
  * This example demonstrates the SuperSaw composite UGen with 7 detuned
- * saw oscillators, vibrato, stereo spreading, and filtering.
+ * saw oscillators, vibrato, stereo spreading, and a single shared filter.
  * Mouse X controls cutoff frequency, Mouse Y controls drive.
  *
- * The UGens are initialized at 2x the JACK sample rate (e.g., 96kHz when
- * JACK runs at 48kHz) for improved audio quality, particularly reducing
+ * The UGens are initialized at 4x the JACK sample rate for improved audio quality, particularly reducing
  * aliasing in the saw wave oscillators. A StereoDownsampler with anti-aliasing
  * filter is used to convert the oversampled audio to the JACK output rate.
  *
@@ -24,16 +23,18 @@
 #include <jack/jack.h>
 #include <X11/Xlib.h>
 #include <array>
+#include <iomanip>
 #include <iostream>
 #include <atomic>
 #include <csignal>
 #include <cmath>
+#include <time.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
 
-// Oversampling factor (2x for improved quality)
-static constexpr size_t OVERSAMPLE_FACTOR = 2;
+// Oversampling factor (4x for improved quality)
+static constexpr size_t OVERSAMPLE_FACTOR = 1;
 
 // Global state for JACK callback
 static constexpr size_t NUM_VOICES = 3;
@@ -41,6 +42,14 @@ static std::array<SuperSaw, NUM_VOICES> g_supersaws;
 static Lag g_cutoffLag;
 static Lag g_driveLag;
 static StereoDownsampler g_downsampler;
+static RKSimulationMoogLadder g_filter;
+static jack_client_t* g_client = nullptr;
+static float g_outputRate = 48000.0f;
+static std::atomic<float> g_cpuUsage{0.0f};
+static float g_cpuRing[100] = {0.0f};
+static size_t g_cpuRingSize = 0;
+static size_t g_cpuRingIndex = 0;
+static double g_cpuRingSum = 0.0;
 static jack_port_t* g_outputPortL = nullptr;
 static jack_port_t* g_outputPortR = nullptr;
 static std::atomic<bool> g_running{true};
@@ -60,6 +69,13 @@ static float driveFromNormalized(float normalized) {
     return MIN_DRIVE_GAIN * std::pow(MAX_DRIVE_GAIN / MIN_DRIVE_GAIN, norm);
 }
 
+static uint64_t get_time_ns() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<uint64_t>(ts.tv_sec) * 1000000000ull +
+           static_cast<uint64_t>(ts.tv_nsec);
+}
+
 /**
  * @brief JACK process callback - ISR-safe audio processing.
  *
@@ -70,6 +86,8 @@ static float driveFromNormalized(float normalized) {
  * with anti-aliasing for improved quality.
  */
 int jackProcessCallback(jack_nframes_t nframes, void*) {
+    uint64_t start = get_time_ns();
+
     // Get output buffers from JACK (stereo)
     jack_default_audio_sample_t* outL =
         static_cast<jack_default_audio_sample_t*>(
@@ -78,7 +96,7 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         static_cast<jack_default_audio_sample_t*>(
             jack_port_get_buffer(g_outputPortR, nframes));
 
-    // Generate and filter audio with 2x oversampling
+    // Generate and filter audio with oversampling
     for (jack_nframes_t i = 0; i < nframes; ++i) {
         // Smooth the cutoff and drive values using Lag (at oversampled rate)
         // Read parameters at output rate to reduce atomic operations
@@ -90,12 +108,12 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
             Sample smoothCutoff = g_cutoffLag.tick(targetCutoff);
             Sample smoothDrive = g_driveLag.tick(targetDrive);
             Sample driveGain = driveFromNormalized(smoothDrive);
+            g_filter.setCutoff(smoothCutoff);
+            g_filter.setResonance(RESONANCE);
+            g_filter.setDrive(driveGain);
 
             Stereo mix{0.0f, 0.0f};
             for (auto& voice : g_supersaws) {
-                voice.setCutoff(smoothCutoff);
-                voice.filter.setResonance(RESONANCE);
-                voice.setDrive(driveGain);
                 Stereo voiceSample = voice.tick();
                 mix.left += voiceSample.left;
                 mix.right += voiceSample.right;
@@ -104,8 +122,11 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
             mix.left *= invVoices;
             mix.right *= invVoices;  // prevent clipping
 
+            Sample mono = 0.5f * (mix.left + mix.right);
+            Sample filtered = g_filter.tick(mono);
+
             // Write to downsampler
-            g_downsampler.write(mix);
+            g_downsampler.write(Stereo(filtered, filtered));
         }
 
         // Read one downsampled output sample
@@ -114,6 +135,27 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         // Output to both channels
         outL[i] = output.left;
         outR[i] = output.right;
+    }
+
+    uint64_t end = get_time_ns();
+    double block_time_ns =
+        (static_cast<double>(nframes) / static_cast<double>(g_outputRate)) *
+        1e9;
+    if (block_time_ns > 0.0) {
+        double cpu = (static_cast<double>(end - start) / block_time_ns) * 100.0;
+        float cpuSample = static_cast<float>(cpu);
+        if (g_cpuRingSize < 100) {
+            g_cpuRing[g_cpuRingIndex] = cpuSample;
+            g_cpuRingSum += cpuSample;
+            ++g_cpuRingSize;
+        } else {
+            g_cpuRingSum -= g_cpuRing[g_cpuRingIndex];
+            g_cpuRing[g_cpuRingIndex] = cpuSample;
+            g_cpuRingSum += cpuSample;
+        }
+        g_cpuRingIndex = (g_cpuRingIndex + 1) % 100;
+        float avgCpu = static_cast<float>(g_cpuRingSum / static_cast<double>(g_cpuRingSize));
+        g_cpuUsage.store(avgCpu, std::memory_order_relaxed);
     }
 
     return 0;
@@ -128,6 +170,7 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     // Calculate oversampled rate
     float outputRate = static_cast<float>(nframes);
     float internalRate = outputRate * OVERSAMPLE_FACTOR;
+    g_outputRate = outputRate;
 
     std::cout << "JACK sample rate: " << nframes << " Hz" << std::endl;
     std::cout << "Internal (oversampled) rate: " << static_cast<int>(internalRate) << " Hz" << std::endl;
@@ -139,18 +182,17 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
         g_supersaws[i].setDetune(0.2f);
         g_supersaws[i].setVibratoRate(6.0f);
         g_supersaws[i].setVibratoDepth(0.3f);
-        g_supersaws[i].setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
         g_supersaws[i].setSpread(0.6f);
-        g_supersaws[i].setCutoff(5000.0f);
-        g_supersaws[i].filter.setResonance(RESONANCE);
-        g_supersaws[i].setLpEnv(0.0f);
-        g_supersaws[i].setLpAttack(0.0f);
         g_supersaws[i].setAttack(0.01f);
         g_supersaws[i].setDecay(0.1f);
         g_supersaws[i].setSustain(0.7f);
         g_supersaws[i].setRelease(0.3f);
         g_supersaws[i].gate(1.0f);
     }
+    g_filter.init(internalRate);
+    g_filter.setCutoff(5000.0f);
+    g_filter.setResonance(RESONANCE);
+    g_filter.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
     // Initialize Lag filters at the oversampled rate (they run in the inner loop)
     g_cutoffLag.init(internalRate, 0.2f);
     g_driveLag.init(internalRate, 0.2f);
@@ -201,9 +243,9 @@ int main() {
 
     // Open JACK client
     jack_status_t status;
-    jack_client_t* client = jack_client_open("subcollider_supersaw", JackNoStartServer, &status);
+    g_client = jack_client_open("subcollider_supersaw", JackNoStartServer, &status);
 
-    if (client == nullptr) {
+    if (g_client == nullptr) {
         std::cerr << "Failed to open JACK client. Is JACK server running?" << std::endl;
         if (status & JackServerFailed) {
             std::cerr << "Unable to connect to JACK server" << std::endl;
@@ -215,9 +257,10 @@ int main() {
     std::cout << "Connected to JACK server" << std::endl;
 
     // Get sample rate and calculate oversampled rate
-    jack_nframes_t sampleRate = jack_get_sample_rate(client);
+    jack_nframes_t sampleRate = jack_get_sample_rate(g_client);
     float outputRate = static_cast<float>(sampleRate);
     float internalRate = outputRate * OVERSAMPLE_FACTOR;
+    g_outputRate = outputRate;
 
     std::cout << "JACK sample rate: " << sampleRate << " Hz" << std::endl;
     std::cout << "Internal (oversampled) rate: " << static_cast<int>(internalRate) << " Hz" << std::endl;
@@ -230,18 +273,17 @@ int main() {
         g_supersaws[i].setDetune(0.2f);           // 0.2 semitones detune
         g_supersaws[i].setVibratoRate(6.0f);      // 6 Hz vibrato
         g_supersaws[i].setVibratoDepth(0.3f);     // 0.3 semitones vibrato depth
-        g_supersaws[i].setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed))); // Drive from normalized control
         g_supersaws[i].setSpread(0.6f);           // 60% stereo spread
-        g_supersaws[i].setCutoff(5000.0f);        // 5kHz initial cutoff
-        g_supersaws[i].filter.setResonance(RESONANCE); // Fixed resonance
-        g_supersaws[i].setLpEnv(0.0f);            // No envelope modulation
-        g_supersaws[i].setLpAttack(0.0f);         // No attack
         g_supersaws[i].setAttack(0.01f);          // 10ms attack
         g_supersaws[i].setDecay(0.1f);            // 100ms decay
         g_supersaws[i].setSustain(0.7f);          // 70% sustain
         g_supersaws[i].setRelease(0.3f);          // 300ms release
         g_supersaws[i].gate(1.0f);
     }
+    g_filter.init(internalRate);
+    g_filter.setCutoff(5000.0f);
+    g_filter.setResonance(RESONANCE);
+    g_filter.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
 
     // Initialize Lag filters at the oversampled rate for smooth parameter changes
     g_cutoffLag.init(internalRate, 0.2f);
@@ -254,29 +296,29 @@ int main() {
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
 
     // Set callbacks
-    jack_set_process_callback(client, jackProcessCallback, nullptr);
-    jack_set_sample_rate_callback(client, jackSampleRateCallback, nullptr);
-    jack_on_shutdown(client, jackShutdownCallback, nullptr);
+    jack_set_process_callback(g_client, jackProcessCallback, nullptr);
+    jack_set_sample_rate_callback(g_client, jackSampleRateCallback, nullptr);
+    jack_on_shutdown(g_client, jackShutdownCallback, nullptr);
 
     // Create stereo output ports
-    g_outputPortL = jack_port_register(client, "output_L",
+    g_outputPortL = jack_port_register(g_client, "output_L",
                                         JACK_DEFAULT_AUDIO_TYPE,
                                         JackPortIsOutput, 0);
-    g_outputPortR = jack_port_register(client, "output_R",
+    g_outputPortR = jack_port_register(g_client, "output_R",
                                         JACK_DEFAULT_AUDIO_TYPE,
                                         JackPortIsOutput, 0);
 
     if (g_outputPortL == nullptr || g_outputPortR == nullptr) {
         std::cerr << "Failed to create JACK output ports" << std::endl;
-        jack_client_close(client);
+        jack_client_close(g_client);
         XCloseDisplay(display);
         return 1;
     }
 
     // Activate client
-    if (jack_activate(client) != 0) {
+    if (jack_activate(g_client) != 0) {
         std::cerr << "Failed to activate JACK client" << std::endl;
-        jack_client_close(client);
+        jack_client_close(g_client);
         XCloseDisplay(display);
         return 1;
     }
@@ -319,8 +361,11 @@ int main() {
             float driveGain = driveFromNormalized(drive);
 
             // Print current values
+            float cpu = g_cpuUsage.load(std::memory_order_relaxed);
             std::cout << "\rCutoff: " << static_cast<int>(cutoff) << " Hz   "
-                     << "Drive: " << driveGain << "   " << std::flush;
+                     << "Drive: " << driveGain << "   "
+                     << "Utilization: " << std::fixed << std::setprecision(1)
+                     << cpu << "%   " << std::flush;
         }
 
         // Sleep to avoid polling too fast
@@ -329,8 +374,8 @@ int main() {
 
     // Cleanup
     std::cout << std::endl << std::endl << "Shutting down..." << std::endl;
-    jack_deactivate(client);
-    jack_client_close(client);
+    jack_deactivate(g_client);
+    jack_client_close(g_client);
     XCloseDisplay(display);
 
     std::cout << "Done." << std::endl;

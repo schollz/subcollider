@@ -114,28 +114,12 @@ int test_supersaw() {
         TEST("SuperSaw setVibratoDepth: depth is set", supersaw.vibrDepth == 0.5f);
     }
 
-    // Test drive setting
-    {
-        SuperSaw supersaw;
-        supersaw.init(48000.0f);
-        supersaw.setDrive(2.0f);
-        TEST("SuperSaw setDrive: drive is set", supersaw.drive == 2.0f);
-    }
-
     // Test spread setting
     {
         SuperSaw supersaw;
         supersaw.init(48000.0f);
         supersaw.setSpread(0.8f);
         TEST("SuperSaw setSpread: spread is set", supersaw.spread == 0.8f);
-    }
-
-    // Test cutoff setting
-    {
-        SuperSaw supersaw;
-        supersaw.init(48000.0f);
-        supersaw.setCutoff(10000.0f);
-        TEST("SuperSaw setCutoff: cutoff is set", supersaw.cutoff == 10000.0f);
     }
 
     // Test ADSR envelope parameters
