@@ -17,10 +17,12 @@
 #include <subcollider/ugens/EnvelopeADSR.h>
 #include <subcollider/ugens/LFNoise2.h>
 #include <subcollider/ugens/Pan2.h>
+#include <subcollider/ugens/XFade2.h>
 #include <subcollider/ugens/XLine.h>
 #include <subcollider/ugens/Phasor.h>
 #include <subcollider/ugens/SuperSaw.h>
 #include <subcollider/ugens/CombC.h>
+#include <subcollider/ugens/LagLinear.h>
 #include <subcollider/ugens/StilsonMoogLadder.h>
 #include <subcollider/ugens/MicrotrackerMoogLadder.h>
 #include <subcollider/ugens/KrajeskiMoogLadder.h>
@@ -388,6 +390,46 @@ void benchmarkPan2() {
 }
 
 /**
+ * @brief Benchmark XFade2 tick().
+ */
+void benchmarkXFade2() {
+    XFade2 xfade;
+    static constexpr Sample posCycle[] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+    constexpr int cycleLength = sizeof(posCycle) / sizeof(Sample);
+
+    Sample inA = 0.5f;
+    Sample inB = -0.5f;
+    volatile Sample sink = 0.0f;
+
+    // Warmup
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        if (i % PARAM_CHANGE_BLOCK_SIZE == 0) {
+            int blockIndex = (i / PARAM_CHANGE_BLOCK_SIZE) % cycleLength;
+            xfade.setPosition(posCycle[blockIndex]);
+        }
+        sink = xfade.tick(inA, inB);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        if (i % PARAM_CHANGE_BLOCK_SIZE == 0) {
+            int blockIndex = (i / PARAM_CHANGE_BLOCK_SIZE) % cycleLength;
+            xfade.setPosition(posCycle[blockIndex]);
+        }
+        sink = xfade.tick(inA, inB);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("XFade2", ticksPerSec);
+    (void)sink;
+}
+
+/**
  * @brief Benchmark XLine tick().
  */
 void benchmarkXLine() {
@@ -414,6 +456,40 @@ void benchmarkXLine() {
     double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
 
     printResult("XLine", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark LagLinear tick().
+ */
+void benchmarkLagLinear() {
+    LagLinear lag;
+    lag.init(48000.0f, 0.0f, 0.02f); // 20 ms ramps
+
+    auto targetForSample = [](int sampleIndex) {
+        static constexpr Sample targets[] = {0.0f, 1.0f, -0.5f, 0.5f};
+        int blockIndex = sampleIndex / PARAM_CHANGE_BLOCK_SIZE;
+        return targets[blockIndex % (sizeof(targets) / sizeof(Sample))];
+    };
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = lag.tick(targetForSample(i));
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = lag.tick(targetForSample(i));
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("LagLinear", ticksPerSec);
     (void)sink;
 }
 
@@ -831,7 +907,9 @@ int main() {
     benchmarkSuperSaw();
     benchmarkLFNoise2();
     benchmarkPan2();
+    benchmarkXFade2();
     benchmarkXLine();
+    benchmarkLagLinear();
     benchmarkPhasor();
     benchmarkCombC();
     benchmarkStilsonMoogLadder();

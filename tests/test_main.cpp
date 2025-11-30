@@ -24,6 +24,7 @@ int test_moogladders();
 int test_xline();
 int test_phasor();
 int test_supersaw();
+int test_xfade2();
 int test_downsampler();
 int test_buffer();
 int test_bufferallocator();
@@ -35,6 +36,7 @@ int test_combc();
 int test_tape();
 int test_onepolelpf();
 int test_dcblock();
+int test_laglinear();
 
 int main() {
     int failures = 0;
@@ -86,6 +88,9 @@ int main() {
     std::cout << "--- SuperSaw Tests ---" << std::endl;
     failures += test_supersaw();
 
+    std::cout << "--- XFade2 Tests ---" << std::endl;
+    failures += test_xfade2();
+
     std::cout << "--- Downsampler Tests ---" << std::endl;
     failures += test_downsampler();
 
@@ -118,6 +123,9 @@ int main() {
 
     std::cout << "--- OnePoleLPF Tests ---" << std::endl;
     failures += test_onepolelpf();
+
+    std::cout << "--- LagLinear Tests ---" << std::endl;
+    failures += test_laglinear();
 
     std::cout << std::endl;
     if (failures == 0) {
