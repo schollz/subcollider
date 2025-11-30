@@ -52,6 +52,8 @@ The following unit generators (UGens) are included:
 - `BufRd` - Buffer reader with variable interpolation (no interpolation, linear, or cubic)
 - `Downsampler` - Downsampler with anti-aliasing filter for oversampling workflows
 - `StereoDownsampler` - Stereo version of Downsampler
+- `DCBlock` - High-pass DC blocker for removing DC offsets
+- `Tape` - Tape-style saturation with envelope follower bias and DC blocking
 - `FVerb` - High-quality algorithmic stereo reverb
 
 ### Composite UGens

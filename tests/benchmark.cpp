@@ -29,6 +29,7 @@
 #include <subcollider/ugens/ImprovedMoogLadder.h>
 #include <subcollider/ugens/RKSimulationMoogLadder.h>
 #include <subcollider/ugens/RLPF.h>
+#include <subcollider/ugens/OnePoleLPF.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -710,6 +711,37 @@ void benchmarkCombC() {
     (void)sink;
 }
 
+void benchmarkOnePoleLPF() {
+    const int n = 64;
+    OnePoleLPF lpf;
+    lpf.init();
+    Sample input[n];
+    Sample cutoff[n];
+    Sample output[n];
+    for(int i=0; i<n; ++i) {
+        input[i] = 0.5;
+        cutoff[i] = 1000.0;
+    }
+
+    // Warmup
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        lpf.process(input, cutoff, output, n);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        lpf.process(input, cutoff, output, n);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = (double)BENCHMARK_ITERATIONS * n / seconds;
+
+    printResult("OnePoleLPF", ticksPerSec);
+}
+
 int main() {
     std::cout << "=== SubCollider UGen Benchmarks ===" << std::endl;
     std::cout << std::endl;
@@ -734,6 +766,7 @@ int main() {
     benchmarkRKSimulationMoogLadder();
     benchmarkRKSimulationMoogLadder2x();
     benchmarkRLPF();
+    benchmarkOnePoleLPF();
 
     std::cout << std::endl;
 

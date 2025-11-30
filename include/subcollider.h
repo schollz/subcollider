@@ -30,6 +30,8 @@
 #include "subcollider/ugens/BufRd.h"
 #include "subcollider/ugens/Downsampler.h"
 #include "subcollider/ugens/CombC.h"
+#include "subcollider/ugens/Tape.h"
+#include "subcollider/ugens/DCBlock.h"
 
 // Biquad Filters
 #include "subcollider/ugens/RLPF.h"

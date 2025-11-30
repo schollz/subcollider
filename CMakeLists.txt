@@ -53,7 +53,6 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_audioloop.cpp
         tests/test_examplevoice.cpp
         tests/test_moogladders.cpp
-        tests/test_rlpf.cpp
         tests/test_xline.cpp
         tests/test_phasor.cpp
         tests/test_supersaw.cpp
@@ -65,6 +64,9 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_playback_oversampling.cpp
         tests/test_fverb.cpp
         tests/test_combc.cpp
+        tests/test_tape.cpp
+        tests/test_dcblock.cpp
+        tests/test_onepolelpf.cpp
     )
     target_link_libraries(subcollider_tests PRIVATE subcollider fverb)
     

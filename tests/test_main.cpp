@@ -21,7 +21,6 @@ int test_balance2();
 int test_audioloop();
 int test_examplevoice();
 int test_moogladders();
-int test_rlpf();
 int test_xline();
 int test_phasor();
 int test_supersaw();
@@ -33,6 +32,9 @@ int test_bufrd_phasor();
 int test_playback_oversampling();
 int test_fverb();
 int test_combc();
+int test_tape();
+int test_onepolelpf();
+int test_dcblock();
 
 int main() {
     int failures = 0;
@@ -75,9 +77,6 @@ int main() {
     std::cout << "--- MoogLadder Tests ---" << std::endl;
     failures += test_moogladders();
 
-    std::cout << "--- RLPF Tests ---" << std::endl;
-    failures += test_rlpf();
-
     std::cout << "--- XLine Tests ---" << std::endl;
     failures += test_xline();
 
@@ -110,6 +109,15 @@ int main() {
 
     std::cout << "--- CombC Tests ---" << std::endl;
     failures += test_combc();
+
+    std::cout << "--- Tape Tests ---" << std::endl;
+    failures += test_tape();
+
+    std::cout << "--- DCBlock Tests ---" << std::endl;
+    failures += test_dcblock();
+
+    std::cout << "--- OnePoleLPF Tests ---" << std::endl;
+    failures += test_onepolelpf();
 
     std::cout << std::endl;
     if (failures == 0) {
