@@ -25,6 +25,7 @@ int test_xline();
 int test_phasor();
 int test_supersaw();
 int test_xfade2();
+int test_wrap();
 int test_downsampler();
 int test_buffer();
 int test_bufferallocator();
@@ -91,6 +92,9 @@ int main() {
 
     std::cout << "--- XFade2 Tests ---" << std::endl;
     failures += test_xfade2();
+
+    std::cout << "--- Wrap Tests ---" << std::endl;
+    failures += test_wrap();
 
     std::cout << "--- Downsampler Tests ---" << std::endl;
     failures += test_downsampler();

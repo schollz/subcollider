@@ -25,6 +25,7 @@
 #include "subcollider/ugens/Pan2.h"
 #include "subcollider/ugens/Balance2.h"
 #include "subcollider/ugens/XFade2.h"
+#include "subcollider/ugens/Wrap.h"
 #include "subcollider/ugens/Lag.h"
 #include "subcollider/ugens/LagLinear.h"
 #include "subcollider/ugens/LinLin.h"

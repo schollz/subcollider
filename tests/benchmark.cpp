@@ -32,6 +32,7 @@
 #include <subcollider/ugens/RKSimulationMoogLadder.h>
 #include <subcollider/ugens/RLPF.h>
 #include <subcollider/ugens/OnePoleLPF.h>
+#include <subcollider/ugens/Wrap.h>
 #include <subcollider/ugens/LinLin.h>
 
 using namespace subcollider;
@@ -427,6 +428,37 @@ void benchmarkXFade2() {
     double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
 
     printResult("XFade2", ticksPerSec);
+    (void)sink;
+}
+
+/**
+ * @brief Benchmark Wrap tick().
+ */
+void benchmarkWrap() {
+    Wrap w;
+    w.setRange(-1.0f, 1.0f);
+    static constexpr Sample inputCycle[] = {-1.5f, -0.5f, 0.25f, 1.25f, 2.75f};
+    constexpr int cycleLength = sizeof(inputCycle) / sizeof(Sample);
+
+    volatile Sample sink = 0.0f;
+
+    // Warmup
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = w.tick(inputCycle[i % cycleLength]);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = w.tick(inputCycle[i % cycleLength]);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("Wrap", ticksPerSec);
     (void)sink;
 }
 
@@ -942,6 +974,7 @@ int main() {
     benchmarkLFNoise2();
     benchmarkPan2();
     benchmarkXFade2();
+    benchmarkWrap();
     benchmarkXLine();
     benchmarkLagLinear();
     benchmarkLinLin();
