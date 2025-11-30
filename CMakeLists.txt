@@ -13,12 +13,16 @@ option(SUBCOLLIDER_BUILD_JACK_PLAYBACK_EXAMPLE "Build JACK playback example (req
 option(SUBCOLLIDER_BUILD_MOOG_EXAMPLE "Build Moog filter example (requires JACK and X11)" OFF)
 option(SUBCOLLIDER_BUILD_SUPERSAW_EXAMPLE "Build SuperSaw example (requires JACK and X11)" OFF)
 
+# FVerb library (has implementation file)
+add_subdirectory(include/subcollider/ugens/fverb)
+
 # Header-only library
 add_library(subcollider INTERFACE)
 target_include_directories(subcollider INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+target_link_libraries(subcollider INTERFACE fverb)
 
 # Compiler warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -58,8 +62,9 @@ if(SUBCOLLIDER_BUILD_TESTS)
         tests/test_bufrd.cpp
         tests/test_bufrd_phasor.cpp
         tests/test_playback_oversampling.cpp
+        tests/test_fverb.cpp
     )
-    target_link_libraries(subcollider_tests PRIVATE subcollider)
+    target_link_libraries(subcollider_tests PRIVATE subcollider fverb)
     
     add_test(NAME subcollider_tests COMMAND subcollider_tests)
 
@@ -124,7 +129,7 @@ endif()
 
 # Installation
 install(DIRECTORY include/ DESTINATION include)
-install(TARGETS subcollider EXPORT subcolliderTargets)
+install(TARGETS subcollider fverb EXPORT subcolliderTargets)
 install(EXPORT subcolliderTargets
     FILE subcolliderTargets.cmake
     NAMESPACE subcollider::

@@ -30,6 +30,7 @@ int test_bufferallocator();
 int test_bufrd();
 int test_bufrd_phasor();
 int test_playback_oversampling();
+int test_fverb();
 
 int main() {
     int failures = 0;
@@ -98,6 +99,9 @@ int main() {
 
     std::cout << "--- Playback Oversampling Tests ---" << std::endl;
     failures += test_playback_oversampling();
+
+    std::cout << "--- FVerb Tests ---" << std::endl;
+    failures += test_fverb();
 
     std::cout << std::endl;
     if (failures == 0) {
