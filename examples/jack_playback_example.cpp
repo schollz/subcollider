@@ -50,6 +50,7 @@ static std::atomic<float> g_basePlaybackRate{1.0f};
 static std::atomic<float> g_rateControl{1.0f};
 static constexpr float MIN_RATE = 0.25f;
 static constexpr float MAX_RATE = 4.0f;
+static constexpr float CENTER_DEADZONE = 0.02f;  // normalized distance from center
 
 void configurePlayback(float sampleRate) {
   g_sampleRate = sampleRate;
@@ -285,7 +286,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << std::endl << "JACK client activated" << std::endl;
   std::cout << "Playing audio in loop... Press Ctrl+C to quit" << std::endl;
-  std::cout << "Move mouse horizontally to control playback rate (0.25x-4x)"
+  std::cout << "Move mouse horizontally to control playback rate (-4x..0..4x)"
             << std::endl;
   std::cout << std::endl;
 
@@ -305,10 +306,20 @@ int main(int argc, char* argv[]) {
           static_cast<float>(rootX) / static_cast<float>(screenWidth);
       normalizedX = std::max(0.0f, std::min(1.0f, normalizedX));
 
-      // Exponential mapping for musical-feeling rate control
-      float logMin = std::log(MIN_RATE);
-      float logMax = std::log(MAX_RATE);
-      float rate = std::exp(logMin + normalizedX * (logMax - logMin));
+      // Exponential mapping for musical-feeling rate control with direction.
+      // Center pauses; left reverses; right forwards.
+      float centered = (normalizedX - 0.5f) * 2.0f;  // -1..1
+      float magNorm = std::abs(centered);
+      float rate = 0.0f;
+      if (magNorm > CENTER_DEADZONE) {
+        float scaledNorm =
+            (magNorm - CENTER_DEADZONE) / (1.0f - CENTER_DEADZONE);
+        scaledNorm = std::max(0.0f, std::min(1.0f, scaledNorm));
+        float logMin = std::log(MIN_RATE);
+        float logMax = std::log(MAX_RATE);
+        float magnitude = std::exp(logMin + scaledNorm * (logMax - logMin));
+        rate = (centered > 0.0f ? magnitude : -magnitude);
+      }
 
       g_rateControl.store(rate, std::memory_order_relaxed);
       std::cout << "\rPlayback rate: " << rate << "x" << std::flush;
