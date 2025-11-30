@@ -237,10 +237,12 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
         g_supersaws[i].gate(1.0f);
     }
     g_filterL.init(internalRate);
+    g_filterL.setOversampleFactor(2);  // 2x oversampling for improved quality
     g_filterL.setCutoff(5000.0f);
     g_filterL.setResonance(RESONANCE);
     g_filterL.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
     g_filterR.init(internalRate);
+    g_filterR.setOversampleFactor(2);  // 2x oversampling for improved quality
     g_filterR.setCutoff(5000.0f);
     g_filterR.setResonance(RESONANCE);
     g_filterR.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
@@ -348,10 +350,12 @@ int main() {
         g_supersaws[i].gate(1.0f);
     }
     g_filterL.init(internalRate);
+    g_filterL.setOversampleFactor(2);  // 2x oversampling for improved quality
     g_filterL.setCutoff(5000.0f);
     g_filterL.setResonance(RESONANCE);
     g_filterL.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
     g_filterR.init(internalRate);
+    g_filterR.setOversampleFactor(2);  // 2x oversampling for improved quality
     g_filterR.setCutoff(5000.0f);
     g_filterR.setResonance(RESONANCE);
     g_filterR.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));

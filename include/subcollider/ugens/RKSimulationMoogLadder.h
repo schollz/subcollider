@@ -135,6 +135,15 @@ struct RKSimulationMoogLadder {
     }
 
     /**
+     * @brief Set oversampling factor.
+     * @param factor Oversampling factor (1 = no oversampling, 2 = 2x, 4 = 4x, etc.)
+     */
+    void setOversampleFactor(int factor) noexcept {
+        oversampleFactor = factor < 1 ? 1 : factor;
+        stepSize = 1.0 / (oversampleFactor * sampleRate);
+    }
+
+    /**
      * @brief Generate single filtered sample.
      * @param input Input sample
      * @return Filtered sample
