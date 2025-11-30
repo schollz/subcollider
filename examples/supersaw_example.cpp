@@ -24,6 +24,7 @@
 
 #include <subcollider.h>
 #include <subcollider/ugens/FVerb.h>
+#include <subcollider/ugens/OnePoleLPF.h>
 #include <jack/jack.h>
 #include <X11/Xlib.h>
 #include <array>
@@ -50,6 +51,8 @@ static StereoDownsampler g_downsampler;
 static RKSimulationMoogLadder g_filterL;
 static RKSimulationMoogLadder g_filterR;
 static FVerb g_reverb;
+static OnePoleLPF g_postLpfL;
+static OnePoleLPF g_postLpfR;
 
 // DC blocking filter state (simple one-pole highpass)
 static Sample g_dcBlockL_x1 = 0.0f;
@@ -118,11 +121,13 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
         // Read parameters at output rate to reduce atomic operations
         Sample targetCutoff = g_cutoff.load(std::memory_order_relaxed);
         Sample targetDrive = g_drive.load(std::memory_order_relaxed);
+        Sample lastCutoff = targetCutoff;
 
         // Generate OVERSAMPLE_FACTOR samples at the higher rate
         for (size_t j = 0; j < OVERSAMPLE_FACTOR; ++j) {
             Sample smoothCutoff = g_cutoffLag.tick(targetCutoff);
             Sample smoothDrive = g_driveLag.tick(targetDrive);
+            lastCutoff = smoothCutoff;
             Sample driveGain = driveFromNormalized(smoothDrive);
             g_filterL.setCutoff(smoothCutoff);
             g_filterL.setResonance(RESONANCE);
@@ -160,6 +165,9 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
 
         // Read one downsampled output sample (dry signal)
         Stereo output = g_downsampler.read();
+        // Gentle post low-pass before reverb to match cutoff
+        output.left = g_postLpfL.tick(output.left, lastCutoff);
+        output.right = g_postLpfR.tick(output.right, lastCutoff);
 
         // Store dry signal in reverb buffers
         g_reverbLeftBuffer[i] = output.left;
@@ -259,6 +267,8 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
 
     // Initialize downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
+    g_postLpfL.init(outputRate, g_cutoff.load(std::memory_order_relaxed));
+    g_postLpfR.init(outputRate, g_cutoff.load(std::memory_order_relaxed));
 
     // Initialize reverb at output rate
     g_reverb.init(outputRate);
@@ -375,6 +385,8 @@ int main() {
 
     // Initialize the stereo downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
+    g_postLpfL.init(outputRate, g_cutoff.load(std::memory_order_relaxed));
+    g_postLpfR.init(outputRate, g_cutoff.load(std::memory_order_relaxed));
 
     // Initialize reverb at output rate
     g_reverb.init(outputRate);

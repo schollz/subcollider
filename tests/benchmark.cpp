@@ -37,6 +37,52 @@ using namespace subcollider::ugens;
 // Number of iterations for benchmarking
 static constexpr int WARMUP_ITERATIONS = 10000;
 static constexpr int BENCHMARK_ITERATIONS = 1000000;
+static constexpr int PARAM_CHANGE_BLOCK_SIZE = 64;
+
+float cutoffForBlock(int blockIndex) {
+    static constexpr float cutoffCycle[] = {600.0f, 1200.0f, 2400.0f, 4800.0f};
+    return cutoffCycle[blockIndex % (sizeof(cutoffCycle) / sizeof(float))];
+}
+
+float resonanceForBlock(int blockIndex) {
+    static constexpr float resonanceCycle[] = {0.2f, 0.35f, 0.5f, 0.65f};
+    return resonanceCycle[blockIndex % (sizeof(resonanceCycle) / sizeof(float))];
+}
+
+float delayTimeForBlock(int blockIndex) {
+    static constexpr float delayCycle[] = {0.03f, 0.06f, 0.09f, 0.12f};
+    return delayCycle[blockIndex % (sizeof(delayCycle) / sizeof(float))];
+}
+
+float decayTimeForBlock(int blockIndex) {
+    static constexpr float decayCycle[] = {0.8f, 1.2f, 1.8f, 2.4f};
+    return decayCycle[blockIndex % (sizeof(decayCycle) / sizeof(float))];
+}
+
+template <typename LadderFilter>
+inline void updateLadderParams(LadderFilter& filter, int sampleIndex) {
+    if (sampleIndex % PARAM_CHANGE_BLOCK_SIZE == 0) {
+        int blockIndex = sampleIndex / PARAM_CHANGE_BLOCK_SIZE;
+        filter.setCutoff(cutoffForBlock(blockIndex));
+        filter.setResonance(resonanceForBlock(blockIndex));
+    }
+}
+
+inline void updateRLPFParams(RLPF& filter, int sampleIndex) {
+    if (sampleIndex % PARAM_CHANGE_BLOCK_SIZE == 0) {
+        int blockIndex = sampleIndex / PARAM_CHANGE_BLOCK_SIZE;
+        filter.setFreq(cutoffForBlock(blockIndex));
+        filter.setResonance(resonanceForBlock(blockIndex));
+    }
+}
+
+inline void updateCombParams(CombC& filter, int sampleIndex) {
+    if (sampleIndex % PARAM_CHANGE_BLOCK_SIZE == 0) {
+        int blockIndex = sampleIndex / PARAM_CHANGE_BLOCK_SIZE;
+        filter.setDelayTime(delayTimeForBlock(blockIndex));
+        filter.setDecayTime(decayTimeForBlock(blockIndex));
+    }
+}
 
 /**
  * @brief Print benchmark result in the required format.
@@ -414,12 +460,14 @@ void benchmarkStilsonMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -445,12 +493,14 @@ void benchmarkMicrotrackerMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -476,12 +526,14 @@ void benchmarkKrajeskiMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -507,12 +559,14 @@ void benchmarkMusicDSPMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -538,12 +592,14 @@ void benchmarkOberheimMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -569,12 +625,14 @@ void benchmarkImprovedMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -600,12 +658,14 @@ void benchmarkRKSimulationMoogLadder() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -632,12 +692,14 @@ void benchmarkRKSimulationMoogLadder2x() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateLadderParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -662,12 +724,14 @@ void benchmarkRLPF() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateRLPFParams(filter, i);
         sink = filter.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateRLPFParams(filter, i);
         sink = filter.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -693,12 +757,14 @@ void benchmarkCombC() {
     volatile Sample sink = 0.0f;
     Sample input = 0.5f;
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        updateCombParams(comb, i);
         sink = comb.tick(input);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        updateCombParams(comb, i);
         sink = comb.tick(input);
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -716,22 +782,33 @@ void benchmarkOnePoleLPF() {
     OnePoleLPF lpf;
     lpf.init();
     Sample input[n];
-    Sample cutoff[n];
     Sample output[n];
-    for(int i=0; i<n; ++i) {
-        input[i] = 0.5;
-        cutoff[i] = 1000.0;
+    for (int i = 0; i < n; ++i) {
+        input[i] = 0.5f;
     }
+
+    constexpr int cutoffVariants = 4;
+    Sample cutoffBlocks[cutoffVariants][n];
+    for (int variant = 0; variant < cutoffVariants; ++variant) {
+        Sample cutoffValue = cutoffForBlock(variant);
+        for (int i = 0; i < n; ++i) {
+            cutoffBlocks[variant][i] = cutoffValue;
+        }
+    }
+
+    auto cutoffBlockForIndex = [&](int blockIndex) -> const Sample* {
+        return cutoffBlocks[blockIndex % cutoffVariants];
+    };
 
     // Warmup
     for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
-        lpf.process(input, cutoff, output, n);
+        lpf.process(input, cutoffBlockForIndex(i), output, n);
     }
 
     // Benchmark
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
-        lpf.process(input, cutoff, output, n);
+        lpf.process(input, cutoffBlockForIndex(i), output, n);
     }
     auto end = std::chrono::high_resolution_clock::now();
 
