@@ -23,6 +23,7 @@
 #include <subcollider.h>
 #include <jack/jack.h>
 #include <X11/Xlib.h>
+#include <array>
 #include <iostream>
 #include <atomic>
 #include <csignal>
@@ -35,7 +36,8 @@ using namespace subcollider::ugens;
 static constexpr size_t OVERSAMPLE_FACTOR = 2;
 
 // Global state for JACK callback
-static SuperSaw g_supersaw;
+static constexpr size_t NUM_VOICES = 3;
+static std::array<SuperSaw, NUM_VOICES> g_supersaws;
 static Lag g_cutoffLag;
 static Lag g_driveLag;
 static StereoDownsampler g_downsampler;
@@ -45,6 +47,7 @@ static std::atomic<bool> g_running{true};
 static std::atomic<float> g_cutoff{5000.0f};
 static std::atomic<float> g_drive{0.0f};  // normalized 0..1
 static constexpr float RESONANCE = 0.1f;
+static constexpr std::array<float, NUM_VOICES> VOICE_FREQUENCIES = {55.0f, 329.63f, 523.25f};  // C (requested 55 Hz), E >200 Hz, G >400 Hz
 
 // Mouse control parameters
 static constexpr float MIN_CUTOFF = 100.0f;
@@ -88,16 +91,21 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
             Sample smoothDrive = g_driveLag.tick(targetDrive);
             Sample driveGain = driveFromNormalized(smoothDrive);
 
-            // Update SuperSaw parameters with smoothed values
-            g_supersaw.setCutoff(smoothCutoff);
-            g_supersaw.filter.setResonance(RESONANCE);
-            g_supersaw.setDrive(driveGain);
-
-            // Generate SuperSaw output at oversampled rate
-            Stereo sample = g_supersaw.tick();
+            Stereo mix{0.0f, 0.0f};
+            for (auto& voice : g_supersaws) {
+                voice.setCutoff(smoothCutoff);
+                voice.filter.setResonance(RESONANCE);
+                voice.setDrive(driveGain);
+                Stereo voiceSample = voice.tick();
+                mix.left += voiceSample.left;
+                mix.right += voiceSample.right;
+            }
+            Sample invVoices = 1.0f / static_cast<Sample>(NUM_VOICES);
+            mix.left *= invVoices;
+            mix.right *= invVoices;  // prevent clipping
 
             // Write to downsampler
-            g_downsampler.write(sample);
+            g_downsampler.write(mix);
         }
 
         // Read one downsampled output sample
@@ -124,34 +132,31 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
     std::cout << "JACK sample rate: " << nframes << " Hz" << std::endl;
     std::cout << "Internal (oversampled) rate: " << static_cast<int>(internalRate) << " Hz" << std::endl;
 
-    // Initialize SuperSaw at the oversampled rate
-    g_supersaw.init(internalRate);
-
+    // Initialize SuperSaws at the oversampled rate
+    for (size_t i = 0; i < NUM_VOICES; ++i) {
+        g_supersaws[i].init(internalRate);
+        g_supersaws[i].setFrequency(VOICE_FREQUENCIES[i]);
+        g_supersaws[i].setDetune(0.2f);
+        g_supersaws[i].setVibratoRate(6.0f);
+        g_supersaws[i].setVibratoDepth(0.3f);
+        g_supersaws[i].setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
+        g_supersaws[i].setSpread(0.6f);
+        g_supersaws[i].setCutoff(5000.0f);
+        g_supersaws[i].filter.setResonance(RESONANCE);
+        g_supersaws[i].setLpEnv(0.0f);
+        g_supersaws[i].setLpAttack(0.0f);
+        g_supersaws[i].setAttack(0.01f);
+        g_supersaws[i].setDecay(0.1f);
+        g_supersaws[i].setSustain(0.7f);
+        g_supersaws[i].setRelease(0.3f);
+        g_supersaws[i].gate(1.0f);
+    }
     // Initialize Lag filters at the oversampled rate (they run in the inner loop)
     g_cutoffLag.init(internalRate, 0.2f);
     g_driveLag.init(internalRate, 0.2f);
 
     // Initialize downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
-
-    // Re-apply settings after init
-    g_supersaw.setFrequency(55.0f);
-    g_supersaw.setDetune(0.2f);
-    g_supersaw.setVibratoRate(6.0f);
-    g_supersaw.setVibratoDepth(0.3f);
-    g_supersaw.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed)));
-    g_supersaw.setSpread(0.6f);
-    g_supersaw.setCutoff(5000.0f);
-    g_supersaw.filter.setResonance(RESONANCE);
-    g_supersaw.setLpEnv(0.0f);
-    g_supersaw.setLpAttack(0.0f);
-    g_supersaw.setAttack(0.01f);
-    g_supersaw.setDecay(0.1f);
-    g_supersaw.setSustain(0.7f);
-    g_supersaw.setRelease(0.3f);
-
-    // Re-trigger the gate after init (which resets the envelope)
-    g_supersaw.gate(1.0f);
 
     return 0;
 }
@@ -218,27 +223,25 @@ int main() {
     std::cout << "Internal (oversampled) rate: " << static_cast<int>(internalRate) << " Hz" << std::endl;
     std::cout << "Oversampling factor: " << OVERSAMPLE_FACTOR << "x" << std::endl;
 
-    // Initialize SuperSaw at the oversampled rate
-    g_supersaw.init(internalRate, 42);  // seed=42
-    g_supersaw.setFrequency(55.0f);
-    g_supersaw.setDetune(0.2f);           // 0.2 semitones detune
-    g_supersaw.setVibratoRate(6.0f);      // 6 Hz vibrato
-    g_supersaw.setVibratoDepth(0.3f);     // 0.3 semitones vibrato depth
-    g_supersaw.setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed))); // Drive from normalized control
-    g_supersaw.setSpread(0.6f);           // 60% stereo spread
-    g_supersaw.setCutoff(5000.0f);        // 5kHz initial cutoff
-    g_supersaw.filter.setResonance(RESONANCE); // Fixed resonance
-    g_supersaw.setLpEnv(0.0f);            // No envelope modulation
-    g_supersaw.setLpAttack(0.0f);         // No attack
-
-    // Set ADSR envelope for gate on/off
-    g_supersaw.setAttack(0.01f);          // 10ms attack
-    g_supersaw.setDecay(0.1f);            // 100ms decay
-    g_supersaw.setSustain(0.7f);          // 70% sustain
-    g_supersaw.setRelease(0.3f);          // 300ms release
-
-    // Trigger the note (gate on)
-    g_supersaw.gate(1.0f);
+    // Initialize SuperSaws at the oversampled rate (C major chord)
+    for (size_t i = 0; i < NUM_VOICES; ++i) {
+        g_supersaws[i].init(internalRate, static_cast<unsigned int>(42 + i));  // different seeds
+        g_supersaws[i].setFrequency(VOICE_FREQUENCIES[i]);
+        g_supersaws[i].setDetune(0.2f);           // 0.2 semitones detune
+        g_supersaws[i].setVibratoRate(6.0f);      // 6 Hz vibrato
+        g_supersaws[i].setVibratoDepth(0.3f);     // 0.3 semitones vibrato depth
+        g_supersaws[i].setDrive(driveFromNormalized(g_drive.load(std::memory_order_relaxed))); // Drive from normalized control
+        g_supersaws[i].setSpread(0.6f);           // 60% stereo spread
+        g_supersaws[i].setCutoff(5000.0f);        // 5kHz initial cutoff
+        g_supersaws[i].filter.setResonance(RESONANCE); // Fixed resonance
+        g_supersaws[i].setLpEnv(0.0f);            // No envelope modulation
+        g_supersaws[i].setLpAttack(0.0f);         // No attack
+        g_supersaws[i].setAttack(0.01f);          // 10ms attack
+        g_supersaws[i].setDecay(0.1f);            // 100ms decay
+        g_supersaws[i].setSustain(0.7f);          // 70% sustain
+        g_supersaws[i].setRelease(0.3f);          // 300ms release
+        g_supersaws[i].gate(1.0f);
+    }
 
     // Initialize Lag filters at the oversampled rate for smooth parameter changes
     g_cutoffLag.init(internalRate, 0.2f);
@@ -280,7 +283,7 @@ int main() {
 
     std::cout << "JACK client activated" << std::endl;
     std::cout << std::endl;
-    std::cout << "Playing SuperSaw at 55 Hz (7 detuned voices with vibrato)" << std::endl;
+    std::cout << "Playing SuperSaw C chord (C=55 Hz, E>200 Hz, G>400 Hz) with 7 detuned voices per note" << std::endl;
     std::cout << "Using " << OVERSAMPLE_FACTOR << "x oversampling for improved audio quality" << std::endl;
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
