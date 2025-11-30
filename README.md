@@ -8,8 +8,14 @@ A lightweight, embedded-friendly C++ DSP engine for audio synthesis.
 
 Run tests:
 
-```bash 
-make run-tests
+```bash
+make test
+```
+
+Run benchmarks:
+
+```bash
+make benchmark
 ```
 
 Run JACK example (requires JACK server running):
@@ -43,8 +49,10 @@ The following unit generators (UGens) are included:
 - `Lag` - Exponential lag filter for smoothing control signals
 - `XLine` - Exponential line generator
 - `Phasor` - Linear ramp with trigger reset and wrap-around
+- `BufRd` - Buffer reader with variable interpolation (no interpolation, linear, or cubic)
 - `Downsampler` - Downsampler with anti-aliasing filter for oversampling workflows
 - `StereoDownsampler` - Stereo version of Downsampler
+- `FVerb` - High-quality algorithmic stereo reverb
 
 ### Composite UGens
 
