@@ -21,6 +21,7 @@ int test_balance2();
 int test_audioloop();
 int test_examplevoice();
 int test_moogladders();
+int test_rlpf();
 int test_xline();
 int test_phasor();
 int test_supersaw();
@@ -73,6 +74,9 @@ int main() {
 
     std::cout << "--- MoogLadder Tests ---" << std::endl;
     failures += test_moogladders();
+
+    std::cout << "--- RLPF Tests ---" << std::endl;
+    failures += test_rlpf();
 
     std::cout << "--- XLine Tests ---" << std::endl;
     failures += test_xline();

@@ -28,6 +28,7 @@
 #include <subcollider/ugens/OberheimMoogLadder.h>
 #include <subcollider/ugens/ImprovedMoogLadder.h>
 #include <subcollider/ugens/RKSimulationMoogLadder.h>
+#include <subcollider/ugens/RLPF.h>
 
 using namespace subcollider;
 using namespace subcollider::ugens;
@@ -647,6 +648,36 @@ void benchmarkRKSimulationMoogLadder2x() {
     printResult("RKSimulMoog2x", ticksPerSec);
     (void)sink;
 }
+/**
+ * @brief Benchmark RLPF tick().
+ */
+void benchmarkRLPF() {
+    RLPF filter;
+    filter.init(48000.0f);
+    filter.setFreq(1000.0f);
+    filter.setResonance(0.707f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = filter.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("RLPF", ticksPerSec);
+    (void)sink;
+}
 
 /**
  * @brief Benchmark CombC tick().
@@ -702,6 +733,7 @@ int main() {
     benchmarkImprovedMoogLadder();
     benchmarkRKSimulationMoogLadder();
     benchmarkRKSimulationMoogLadder2x();
+    benchmarkRLPF();
 
     std::cout << std::endl;
 
