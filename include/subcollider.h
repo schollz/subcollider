@@ -29,6 +29,7 @@
 #include "subcollider/ugens/Phasor.h"
 #include "subcollider/ugens/BufRd.h"
 #include "subcollider/ugens/Downsampler.h"
+#include "subcollider/ugens/CombC.h"
 
 // Moog Ladder Filters
 #include "subcollider/ugens/StilsonMoogLadder.h"

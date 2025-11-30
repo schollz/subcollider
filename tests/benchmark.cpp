@@ -20,6 +20,7 @@
 #include <subcollider/ugens/XLine.h>
 #include <subcollider/ugens/Phasor.h>
 #include <subcollider/ugens/SuperSaw.h>
+#include <subcollider/ugens/CombC.h>
 #include <subcollider/ugens/StilsonMoogLadder.h>
 #include <subcollider/ugens/MicrotrackerMoogLadder.h>
 #include <subcollider/ugens/KrajeskiMoogLadder.h>
@@ -647,6 +648,37 @@ void benchmarkRKSimulationMoogLadder2x() {
     (void)sink;
 }
 
+/**
+ * @brief Benchmark CombC tick().
+ */
+void benchmarkCombC() {
+    CombC comb;
+    comb.init(48000.0f, 1.0f);
+    comb.setDelayTime(0.1f);
+    comb.setDecayTime(2.0f);
+
+    // Warmup
+    volatile Sample sink = 0.0f;
+    Sample input = 0.5f;
+    for (int i = 0; i < WARMUP_ITERATIONS; ++i) {
+        sink = comb.tick(input);
+    }
+
+    // Benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < BENCHMARK_ITERATIONS; ++i) {
+        sink = comb.tick(input);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    double seconds = duration.count() / 1e9;
+    double ticksPerSec = BENCHMARK_ITERATIONS / seconds;
+
+    printResult("CombC", ticksPerSec);
+    (void)sink;
+}
+
 int main() {
     std::cout << "=== SubCollider UGen Benchmarks ===" << std::endl;
     std::cout << std::endl;
@@ -661,6 +693,7 @@ int main() {
     benchmarkPan2();
     benchmarkXLine();
     benchmarkPhasor();
+    benchmarkCombC();
     benchmarkStilsonMoogLadder();
     benchmarkMicrotrackerMoogLadder();
     benchmarkKrajeskiMoogLadder();
