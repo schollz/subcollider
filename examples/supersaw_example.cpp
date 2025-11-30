@@ -1,14 +1,17 @@
 /**
  * @file supersaw_example.cpp
- * @brief Interactive SuperSaw example with mouse control and 4x oversampling.
+ * @brief Interactive SuperSaw example with mouse control, filter, and reverb.
  *
  * This example demonstrates the SuperSaw composite UGen with 7 detuned
- * saw oscillators, vibrato, stereo spreading, and a single shared filter.
+ * saw oscillators, vibrato, stereo spreading, a Moog ladder filter, and
+ * FVerb stereo reverb (10% wet).
  * Mouse X controls cutoff frequency, Mouse Y controls drive.
  *
- * The UGens are initialized at 4x the JACK sample rate for improved audio quality, particularly reducing
- * aliasing in the saw wave oscillators. A StereoDownsampler with anti-aliasing
- * filter is used to convert the oversampled audio to the JACK output rate.
+ * Signal chain:
+ *   SuperSaw -> Moog Filter -> FVerb (10% wet) -> Output
+ *
+ * The UGens are initialized at the JACK sample rate. FVerb processes
+ * the filtered audio in blocks for high-quality algorithmic reverberation.
  *
  * Compile with: -ljack -lX11
  *
@@ -20,6 +23,7 @@
  */
 
 #include <subcollider.h>
+#include <subcollider/ugens/FVerb.h>
 #include <jack/jack.h>
 #include <X11/Xlib.h>
 #include <array>
@@ -38,13 +42,18 @@ static constexpr size_t OVERSAMPLE_FACTOR = 1;
 
 // Global state for JACK callback
 static constexpr size_t NUM_VOICES = 3;
+static constexpr size_t MAX_BLOCK_SIZE = 8192;
 static std::array<SuperSaw, NUM_VOICES> g_supersaws;
 static Lag g_cutoffLag;
 static Lag g_driveLag;
 static StereoDownsampler g_downsampler;
 static RKSimulationMoogLadder g_filter;
+static FVerb g_reverb;
+static Sample g_reverbLeftBuffer[MAX_BLOCK_SIZE];
+static Sample g_reverbRightBuffer[MAX_BLOCK_SIZE];
 static jack_client_t* g_client = nullptr;
 static float g_outputRate = 48000.0f;
+static constexpr float REVERB_WET = 0.0f;  // 10% wet
 static std::atomic<float> g_cpuUsage{0.0f};
 static float g_cpuRing[100] = {0.0f};
 static size_t g_cpuRingSize = 0;
@@ -129,12 +138,30 @@ int jackProcessCallback(jack_nframes_t nframes, void*) {
             g_downsampler.write(Stereo(filtered, filtered));
         }
 
-        // Read one downsampled output sample
+        // Read one downsampled output sample (dry signal)
         Stereo output = g_downsampler.read();
 
-        // Output to both channels
-        outL[i] = output.left;
-        outR[i] = output.right;
+        // Store dry signal in reverb buffers
+        g_reverbLeftBuffer[i] = output.left;
+        g_reverbRightBuffer[i] = output.right;
+    }
+
+    // Store dry in temp buffers before reverb processing
+    Sample dryLeftBuffer[MAX_BLOCK_SIZE];
+    Sample dryRightBuffer[MAX_BLOCK_SIZE];
+
+    for (jack_nframes_t i = 0; i < nframes; ++i) {
+        dryLeftBuffer[i] = g_reverbLeftBuffer[i];
+        dryRightBuffer[i] = g_reverbRightBuffer[i];
+    }
+
+    // Process entire block through reverb (overwrites reverb buffers with wet signal)
+    g_reverb.process(g_reverbLeftBuffer, g_reverbRightBuffer, nframes);
+
+    // Mix wet (reverb) and dry signals and write to output
+    for (jack_nframes_t i = 0; i < nframes; ++i) {
+        outL[i] = dryLeftBuffer[i] * (1.0f - REVERB_WET) + g_reverbLeftBuffer[i] * REVERB_WET;
+        outR[i] = dryRightBuffer[i] * (1.0f - REVERB_WET) + g_reverbRightBuffer[i] * REVERB_WET;
     }
 
     uint64_t end = get_time_ns();
@@ -199,6 +226,15 @@ int jackSampleRateCallback(jack_nframes_t nframes, void*) {
 
     // Initialize downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
+
+    // Initialize reverb at output rate
+    g_reverb.init(outputRate);
+    g_reverb.setPredelay(150.0f);
+    g_reverb.setDecay(82.0f);
+    g_reverb.setTailDensity(80.0f);
+    g_reverb.setInputDiffusion1(70.0f);
+    g_reverb.setInputDiffusion2(75.0f);
+    g_reverb.setDamping(5500.0f);
 
     return 0;
 }
@@ -295,6 +331,15 @@ int main() {
     // Initialize the stereo downsampler
     g_downsampler.init(outputRate, OVERSAMPLE_FACTOR);
 
+    // Initialize reverb at output rate
+    g_reverb.init(outputRate);
+    g_reverb.setPredelay(150.0f);
+    g_reverb.setDecay(82.0f);
+    g_reverb.setTailDensity(80.0f);
+    g_reverb.setInputDiffusion1(70.0f);
+    g_reverb.setInputDiffusion2(75.0f);
+    g_reverb.setDamping(5500.0f);
+
     // Set callbacks
     jack_set_process_callback(g_client, jackProcessCallback, nullptr);
     jack_set_sample_rate_callback(g_client, jackSampleRateCallback, nullptr);
@@ -326,7 +371,7 @@ int main() {
     std::cout << "JACK client activated" << std::endl;
     std::cout << std::endl;
     std::cout << "Playing SuperSaw C chord (C=55 Hz, E>200 Hz, G>400 Hz) with 7 detuned voices per note" << std::endl;
-    std::cout << "Using " << OVERSAMPLE_FACTOR << "x oversampling for improved audio quality" << std::endl;
+    std::cout << "Signal chain: SuperSaw -> Moog Filter -> FVerb (10% wet)" << std::endl;
     std::cout << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Move mouse horizontally (X) to control cutoff frequency" << std::endl;
