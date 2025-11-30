@@ -35,38 +35,16 @@ int test_xplay() {
         xplay.setFadeTime(0.0f);      // Instant fade for static crossfade
         xplay.setGate(1.0f);
 
-        // Make modulation deterministic and envelope flat
-        xplay.panNoise.init(sr, 22222);
-        xplay.panNoise.setFrequency(0.1f);
-        xplay.ampNoise.init(sr, 11111);
-        xplay.ampNoise.setFrequency(0.1f);
+        // Make envelope flat and fade fixed
         xplay.fadeLag.setValue(-1.0f); // Force fade to first head
         xplay.env.value = 1.0f;
         xplay.env.state = EnvelopeADSR::State::Sustain;
         xplay.env.sustainLevel = 1.0f;
         xplay.env.gateValue = 1.0f;
 
-        // Reference modulators with same seeds
-        LFNoise2 panRef;
-        panRef.init(sr, 22222);
-        panRef.setFrequency(0.1f);
-        LFNoise2 ampRef;
-        ampRef.init(sr, 11111);
-        ampRef.setFrequency(0.1f);
-        DBAmp dbAmp;
-
-        Sample pan = panRef.tick();
-        Sample angle = (pan + 1.0f) * 0.78539816339f;
-        Sample leftGain = std::cos(angle);
-        Sample rightGain = std::sin(angle);
-
-        Sample ampNoise = ampRef.tick();
-        Sample ampDb = LinLin(ampNoise, -1.0f, 1.0f, -8.0f, 6.0f);
-        Sample ampLin = dbAmp.process(ampDb);
-
         Stereo out = xplay.tick();
-        TEST("XPlay deterministic left", std::abs(out.left - (leftGain * ampLin)) < 1e-5f);
-        TEST("XPlay deterministic right", std::abs(out.right - (rightGain * ampLin)) < 1e-5f);
+        TEST("XPlay deterministic left", std::abs(out.left - 1.0f) < 1e-5f);
+        TEST("XPlay deterministic right", std::abs(out.right - 1.0f) < 1e-5f);
     }
 
     // Reverse playback keeps phasor within 2x window

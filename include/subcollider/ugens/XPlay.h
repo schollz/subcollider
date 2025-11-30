@@ -41,6 +41,11 @@ namespace ugens {
  * simple comparisons (no Changed/Select). Linear lag replaces VarLag.
  */
 struct XPlay {
+    enum class PlayMode : uint8_t {
+        Loop = 0,
+        Bounce = 1
+    };
+
     const Buffer* buffer = nullptr;
     Sample sampleRate = DEFAULT_SAMPLE_RATE;
     Sample start = 0.0f;
@@ -48,6 +53,7 @@ struct XPlay {
     Sample rate = 1.0f;
     Sample fadeTime = 0.05f;
     Sample gateValue = 1.0f;
+    PlayMode playMode = PlayMode::Loop;
 
     // Derived state
     Sample frames = 0.0f;
@@ -62,9 +68,6 @@ struct XPlay {
     BufRd reader;
     Wrap wrapper;
     XFade2 xfader;
-    Balance2 balancer;
-    LFNoise2 panNoise;
-    LFNoise2 ampNoise;
     LagLinear fadeLag;
     EnvelopeADSR env;
     DBAmp dbAmp;
@@ -76,10 +79,6 @@ struct XPlay {
     void init(Sample sr = DEFAULT_SAMPLE_RATE) noexcept {
         sampleRate = sr;
         reader.init();
-        panNoise.init(sr);
-        panNoise.setFrequency(0.1f);
-        ampNoise.init(sr, 54321); // Different seed for amplitude path
-        ampNoise.setFrequency(0.1f);
         fadeLag.init(sr, -1.0f, fadeTime);
         env.init(sr);
         env.setAttack(fadeTime);
@@ -119,6 +118,11 @@ struct XPlay {
      * @brief Set playback rate multiplier.
      */
     void setRate(Sample newRate) noexcept { rate = newRate; }
+
+    /**
+     * @brief Set play mode (Loop or Bounce).
+     */
+    void setPlayMode(PlayMode mode) noexcept { playMode = mode; }
 
     /**
      * @brief Set crossfade/envelope time in seconds.
@@ -172,28 +176,41 @@ struct XPlay {
         Sample fadeCtrl = fadeLag.tick(fadeTarget);
 
         // Positions for two read heads
-        Sample pos1 = wrapper.process(currentPhasor, 0.0f, frames);
-        Sample pos2 = wrapper.process(currentPhasor - loopSize, 0.0f, frames);
+        Sample pos1 = 0.0f;
+        Sample pos2 = 0.0f;
+
+        if (playMode == PlayMode::Loop) {
+            pos1 = wrapper.process(currentPhasor, 0.0f, frames);
+            pos2 = wrapper.process(currentPhasor - loopSize, 0.0f, frames);
+        } else { // Bounce
+            Sample twoSize = loopSize * 2.0f;
+            Sample phaseWithin = currentPhasor - loopStart;
+            // Ensure positive modulo inside [0, 2*loopSize)
+            phaseWithin = std::fmod(phaseWithin, twoSize);
+            if (phaseWithin < 0.0f) {
+                phaseWithin += twoSize;
+            }
+
+            auto pingpong = [&](Sample p) -> Sample {
+                return (p <= loopSize) ? p : (twoSize - p);
+            };
+
+            // Head 1 pingpongs, head 2 mirrors to travel opposite direction at turns
+            Sample p1 = pingpong(phaseWithin);
+            Sample p2 = pingpong(twoSize - phaseWithin);
+
+            pos1 = loopStart + p1;
+            pos2 = loopStart + p2;
+        }
 
         Stereo sig1 = reader.tickStereo(pos1);
         Stereo sig2 = reader.tickStereo(pos2);
 
         // Crossfade
         Stereo snd = xfader.process(sig1, sig2, fadeCtrl);
-
-        // Balance modulation
-        Sample panPos = panNoise.tick();
-        snd = balancer.process(snd.left, snd.right, panPos);
-
-        // Amplitude modulation in dB -> amp
-        Sample ampDb = LinLin(ampNoise.tick(), -1.0f, 1.0f, -8.0f, 6.0f);
-        Sample ampLin = dbAmp.process(ampDb);
-
-        // Envelope
         Sample envVal = env.tick();
-
-        snd.left *= ampLin * envVal;
-        snd.right *= ampLin * envVal;
+        snd.left *= envVal;
+        snd.right *= envVal;
 
         // Advance phasor over 2x loop window
         currentPhasor += effectiveRate;
